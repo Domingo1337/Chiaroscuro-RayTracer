@@ -3,7 +3,7 @@
 
 //#include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <camera.h>
+#include <camera.hpp>
 #include <string>
 #include <iostream>
 
@@ -11,7 +11,7 @@ void processInput(GLFWwindow *window);
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
-bool createWindow();
+bool createWindow(unsigned, unsigned);
 int intify(std::string s);
 
 // settings
