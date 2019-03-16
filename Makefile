@@ -3,7 +3,7 @@
 #
 CXX=g++
 CFLAGS=-I/home/anl/PGK/include/ -I/home/anl/PGK/include/GLFW/ -I/usr/local/include/GLFW/ -I/home/synthwave/Projects/OpenGLTutorials/external/ -I./include/ -I./ -L../build/external/glfw-3.1.2/src -std=c++11 -L../build/external/ -L/home/anl/PGK/lib
-LIBS=-lglfw3 -lGL  -ldl -lX11 -lXxf86vm -lXrandr -lXi -lXinerama -lXcursor -lpthread -lassimp
+LIBS=-lglfw3 -lGL  -ldl -lX11 -lXxf86vm -lXrandr -lXi -lXinerama -lXcursor -lpthread -lassimp -lfreeimage
 #COMMON=/home/anl/PGK/lib/shader.o /home/anl/PGK/lib/controls.o  /home/anl/PGK/lib/texture.o
 
 default: main

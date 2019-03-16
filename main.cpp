@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
         preview->loop();
         delete preview;
     }
-    
+
     RayCaster renderer(ourModel, scene);
     renderer.rayTrace(camera.Position, camera.Front, camera.Up);
     renderer.printPPM();

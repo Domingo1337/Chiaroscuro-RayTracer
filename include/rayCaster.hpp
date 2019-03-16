@@ -1,4 +1,5 @@
 #pragma once
+#include <FreeImage.h>
 #include <camera.hpp>
 #include <fstream>
 #include <glm/gtx/intersect.hpp>
@@ -22,6 +23,9 @@ class RayCaster {
     /* Intersect ray specified by origin and direction with every triangle in the model,
        storing the hitpoint's position in cross and color in pixel */
     bool intersectRayModel(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &pixel, glm::vec3 &cross);
+
+    /* Export image to file using FreeImage library. Default format is png */
+    void exportImage(const char *filename, const char *format, uint8_t bitesPerPixel = 24);
 
     RayCaster(Model &_model, Scene &_scene)
         : model(_model), scene(_scene), pixels(scene.yres, std::vector<glm::vec3>(scene.xres)) {}
@@ -102,4 +106,34 @@ void RayCaster::printPPM(std::ostream &ostream = std::cout) {
         }
         ostream << "\n";
     }
+}
+
+void RayCaster::exportImage(const char *filename, const char *format, uint8_t bitesPerPixel) {
+    FreeImage_Initialise();
+
+    FREE_IMAGE_FORMAT fileformat = FIF_PNG;
+    if (!strcasecmp(format, "jpg") || !strcasecmp(format, "jpeg"))
+        fileformat = FIF_JPEG;
+
+    FIBITMAP *bitmap = FreeImage_Allocate(scene.xres, scene.yres, bitesPerPixel);
+    if (!bitmap) {
+        std::cerr << "FreeImage export failed.\n";
+        return FreeImage_DeInitialise();
+    }
+
+    RGBQUAD color;
+    for (int y = 0; y < scene.yres; y++) {
+        for (int x = 0; x < scene.xres; x++) {
+            color.rgbRed = 255.f * pixels[y][x].r;
+            color.rgbGreen = 255.f * pixels[y][x].g;
+            color.rgbBlue = 255.f * pixels[y][x].b;
+            FreeImage_SetPixelColor(bitmap, x, scene.yres - y, &color);
+        }
+    }
+    if (FreeImage_Save(fileformat, bitmap, filename, 0))
+        std::cerr << "Render succesfully saved to file " << filename << "\n";
+    else
+        std::cerr << "FreeImage export failed.\n";
+
+    FreeImage_DeInitialise();
 }
