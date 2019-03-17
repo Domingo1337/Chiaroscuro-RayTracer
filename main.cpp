@@ -22,31 +22,26 @@
 
 /* TODO:
  *   Calculate normals if they are not given in obj file.
- *   Decent image export.
- *   Move OpenGl to some class to have some nice abstraction.
  */
 
 int main(int argc, char *argv[]) {
     usingOpenGLPreview = true;
     Scene scene(argc > 1 ? argv[1] : "view_test.rtc");
 
-    OpenGLPreview *preview;
-
     if (usingOpenGLPreview) {
-        preview = new OpenGLPreview(&scene);
+        OpenGLPreview preview(&scene);
+        Model ourModel(scene.objFile);
+        RayCaster renderer(ourModel, scene);
+        preview.setModel(&ourModel);
+        rendererPtr = &renderer;
+        preview.loop(renderer.getData(), scene.xres, scene.yres);
+        renderer.exportImage("render.png", "png");
+    } else {
+        Model ourModel(scene.objFile);
+        RayCaster renderer(ourModel, scene);
+        renderer.rayTrace(scene.VP, scene.LA, scene.UP);
+        renderer.exportImage("xd.jpg", "jpg");
     }
-
-    Model ourModel(scene.objFile);
-
-    if (usingOpenGLPreview) {
-        preview->setModel(&ourModel);
-        preview->loop();
-        delete preview;
-    }
-
-    RayCaster renderer(ourModel, scene);
-    renderer.rayTrace(camera.Position, camera.Front, camera.Up);
-    renderer.printPPM();
 
     return 0;
 }

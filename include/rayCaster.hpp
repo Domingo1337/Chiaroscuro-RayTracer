@@ -1,6 +1,5 @@
 #pragma once
 #include <FreeImage.h>
-#include <camera.hpp>
 #include <fstream>
 #include <glm/gtx/intersect.hpp>
 #include <iostream>
@@ -13,6 +12,7 @@ class RayCaster {
     Model &model;
     Scene &scene;
     std::vector<std::vector<glm::vec3>> pixels;
+    std::vector<uint8_t> data;
 
     /* Fill pixels with rays shot on screen centered between eye and center */
     void rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up);
@@ -27,8 +27,11 @@ class RayCaster {
     /* Export image to file using FreeImage library. Default format is png */
     void exportImage(const char *filename, const char *format, uint8_t bitesPerPixel = 24);
 
+    uint8_t *getData() { return data.data(); }
+
     RayCaster(Model &_model, Scene &_scene)
-        : model(_model), scene(_scene), pixels(scene.yres, std::vector<glm::vec3>(scene.xres)) {}
+        : model(_model), scene(_scene), pixels(scene.yres, std::vector<glm::vec3>(scene.xres)),
+          data(scene.yres * scene.xres * 3) {}
 };
 
 bool RayCaster::intersectRayModel(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &pixel,
@@ -55,54 +58,60 @@ bool RayCaster::intersectRayModel(const glm::vec3 &origin, const glm::vec3 &dire
     return false;
 }
 
-void RayCaster::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 0.f, 0.f}) {
-    float z = 100.f;
+void RayCaster::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1.f, 0.f}) {
+    float z = 1.f;
     float y = z * 0.5f * scene.yview;
     float x = y * ((float)scene.xres / (float)scene.yres);
 
     glm::vec3 leftUpper = {-x, y, -z};
-    glm::vec3 leftLower = {-x, -y, -z};
-    glm::vec3 rightUpper = {x, y, -z};
+    glm::vec3 dy = {0.f, -2.f * y, 0.f};
+    glm::vec3 dx = {2.f * x, 0.f, 0.f};
 
     /* rotate the corners of screen to look from VP to LA */
     auto rotate = glm::inverse(glm::mat3(glm::lookAt(eye, center, up)));
     leftUpper = rotate * leftUpper;
-    leftLower = rotate * leftLower;
-    rightUpper = rotate * rightUpper;
+    dy = (1.f / scene.yres) * rotate * dy;
+    dx = (1.f / scene.xres) * rotate * dx;
 
-    glm::vec3 dx = (1.f / scene.xres) * (rightUpper - leftUpper);
-    glm::vec3 dy = (1.f / scene.yres) * (leftLower - leftUpper);
-
-    glm::vec3 current = leftUpper + eye + 0.5f * (dy + dx);
-
+    glm::vec3 current = leftUpper + 0.5f * (dy + dx);
     for (int y = 0; y < scene.yres; y++, current += dy) {
         glm::vec3 currentRay = current;
         for (int x = 0; x < scene.xres; x++, currentRay += dx) {
             glm::vec3 cross;
             if (intersectRayModel(eye, currentRay, pixels[y][x], cross) && scene.k) {
-                /* tbh I have only implemented the algorithm for k == 0 */
                 /*  check for shadow rays */
                 for (auto &light : scene.lights) {
                     glm::vec3 temp_pixel, temp_cross;
-                    if (intersectRayModel(cross + (0.0001f * (light.position - cross)), light.position, temp_pixel, temp_cross)) {
+                    if (intersectRayModel(cross + (0.0001f * (light.position - cross)), (light.position - cross),
+                                          temp_pixel, temp_cross)) {
                         // just to show which mesh blocked the light we set the pixel color to mesh's (darker) color
                         pixels[y][x] = 0.5f * temp_pixel;
                     }
                 }
             }
+
+            /* render lights */
+            for (auto &light : scene.lights) {
+                if (glm::areCollinear(currentRay, light.position - eye, 0.005f))
+                    pixels[y][x] = {1.f, 1.f, 1.f};
+            }
+
+            int i = 3 * ((scene.yres - y - 1) * scene.xres + x);
+            data[i] = (uint8_t)(pixels[y][x].r * 255.f);
+            data[i + 1] = (uint8_t)(pixels[y][x].g * 255.f);
+            data[i + 2] = (uint8_t)(pixels[y][x].b * 255.f);
         }
     }
 }
 
 void RayCaster::printPPM(std::ostream &ostream = std::cout) {
-    if (pixels.size() < scene.yres)
-        return;
     ostream << "P3\n";
     ostream << scene.xres << " " << scene.yres << " \n255\n";
-    for (int y = 0; y < scene.yres; y++) {
+    for (int y = scene.yres - 1; y >= 0; y--) {
         for (int x = 0; x < scene.xres; x++) {
-            ostream << (unsigned)(255.f * pixels[y][x].x) << " " << (unsigned)(255.f * pixels[y][x].y) << " "
-                    << (unsigned)(255.f * pixels[y][x].z) << " ";
+            ostream << (unsigned)data[3 * (scene.xres * y + x)] << " ";
+            ostream << (unsigned)data[3 * (scene.xres * y + x) + 1] << " ";
+            ostream << (unsigned)data[3 * (scene.xres * y + x) + 2] << " ";
         }
         ostream << "\n";
     }
@@ -124,10 +133,10 @@ void RayCaster::exportImage(const char *filename, const char *format, uint8_t bi
     RGBQUAD color;
     for (int y = 0; y < scene.yres; y++) {
         for (int x = 0; x < scene.xres; x++) {
-            color.rgbRed = 255.f * pixels[y][x].r;
-            color.rgbGreen = 255.f * pixels[y][x].g;
-            color.rgbBlue = 255.f * pixels[y][x].b;
-            FreeImage_SetPixelColor(bitmap, x, scene.yres - y, &color);
+            color.rgbRed   = data[3 * (scene.xres * y + x)];
+            color.rgbGreen = data[3 * (scene.xres * y + x) + 1];
+            color.rgbBlue  = data[3 * (scene.xres * y + x) + 2];
+            FreeImage_SetPixelColor(bitmap, x, y, &color);
         }
     }
     if (FreeImage_Save(fileformat, bitmap, filename, 0))

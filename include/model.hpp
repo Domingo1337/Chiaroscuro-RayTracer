@@ -1,3 +1,7 @@
+/* Based off LearnOpenGL's
+ * https://learnopengl.com/code_viewer_gh.php?code=includes/learnopengl/model.h
+ */
+
 #ifndef MODEL_H
 #define MODEL_H
 
@@ -26,17 +30,13 @@ unsigned int TextureFromFile(const char *path, const std::string &directory, boo
 
 class Model {
   public:
-    // Functions
-    Model() { loadModel("data/view_test.obj"); };
     Model(std::string path) { loadModel(path); };
     void Draw(Shader shader);
-    // Model data
     std::vector<Mesh> meshes;
 
   private:
     std::string directory;
     std::vector<Texture> textures_loaded; // stores all the textures loaded so far
-    // Functions
     void loadModel(std::string path);
     void processNode(aiNode *node, const aiScene *scene);
     Mesh processMesh(aiMesh *mesh, const aiScene *scene);

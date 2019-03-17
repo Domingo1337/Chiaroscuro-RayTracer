@@ -12,17 +12,33 @@ v  1.0  0.0  0.0
 v -1.0  1.0  0.0
 v  0.0  1.0  0.0
 v  1.0  1.0  0.0
+v  0.4  0.5  0.3
+v  0.4  0.6  0.3
+v  0.6  0.6  0.3
+v  0.6  0.5  0.3
 
 vn 0.0000 0.0000 1.0000
 
 g checkerboard
-usemtl red
+usemtl yellow
+s 1
+f 10//1 12//1 11//1
+f 10//1 13//1 12//1
+
+usemtl orange
 s 1
 f 1//1 2//1 4//1
+
+usemtl red
+s 1
 f 4//1 2//1 5//1
 # 2 faces
 
 usemtl blue
 s 1
 f 5//1 6//1 8//1
+
+usemtl green
+s 1
 f 8//1 6//1 9//1
+
