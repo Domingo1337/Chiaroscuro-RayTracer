@@ -15,17 +15,18 @@ class RayCaster {
     std::vector<uint8_t> data;
 
     /* Fill pixels with rays shot on screen centered between eye and center */
-    void rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up);
+    void rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up, float yview);
 
     /* Print render in PPM format to specified stream (default: std::cout) */
     void printPPM(std::ostream &ostream);
 
     /* Intersect ray specified by origin and direction with every triangle in the model,
        storing the hitpoint's position in cross and color in pixel */
-    bool intersectRayModel(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &pixel, glm::vec3 &cross);
+    bool intersectRayModel(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &pixel, glm::vec3 &cross,
+                           bool shadowRay);
 
-    /* Export image to file using FreeImage library. Default format is png */
-    void exportImage(const char *filename, const char *format, uint8_t bitesPerPixel = 24);
+    /* Export image to file using FreeImage library. Default format is png. 24 bites per pixel */
+    void exportImage(const char *filename, const char *format);
 
     uint8_t *getData() { return data.data(); }
 
@@ -35,7 +36,10 @@ class RayCaster {
 };
 
 bool RayCaster::intersectRayModel(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &pixel,
-                                  glm::vec3 &cross) {
+                                  glm::vec3 &cross, bool shadowRay = false) {
+    float minDist = FLT_MAX;
+    Mesh *closestMesh = NULL;
+
     for (auto &mesh : model.meshes) {
         auto &indices = mesh.indices;
         auto &vertices = mesh.vertices;
@@ -47,20 +51,28 @@ bool RayCaster::intersectRayModel(const glm::vec3 &origin, const glm::vec3 &dire
             auto &C = vertices[indices[i + 2]].Position;
 
             glm::vec3 baryPosition;
-            if (glm::intersectRayTriangle(origin, direction, A, B, C, baryPosition)) {
-                cross = origin + baryPosition.z * direction;
-                pixel = mesh.color.diffuse;
-                return true;
+            if (glm::intersectRayTriangle(origin, direction, A, B, C, baryPosition) && baryPosition.z < minDist) {
+                if (shadowRay) {
+                    pixel = mesh.color.diffuse;
+                    return true;
+                }
+                minDist = baryPosition.z;
+                closestMesh = &mesh;
             }
         }
+    }
+    if (closestMesh) {
+        cross = origin + minDist * direction;
+        pixel = closestMesh->color.diffuse;
+        return true;
     }
     pixel = {0.f, 0.f, 0.f};
     return false;
 }
 
-void RayCaster::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1.f, 0.f}) {
+void RayCaster::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1.f, 0.f}, float yview = 1.f) {
     float z = 1.f;
-    float y = z * 0.5f * scene.yview;
+    float y = z * 0.5f * yview;
     float x = y * ((float)scene.xres / (float)scene.yres);
 
     glm::vec3 leftUpper = {-x, y, -z};
@@ -117,14 +129,14 @@ void RayCaster::printPPM(std::ostream &ostream = std::cout) {
     }
 }
 
-void RayCaster::exportImage(const char *filename, const char *format, uint8_t bitesPerPixel) {
+void RayCaster::exportImage(const char *filename, const char *format) {
     FreeImage_Initialise();
 
     FREE_IMAGE_FORMAT fileformat = FIF_PNG;
     if (!strcasecmp(format, "jpg") || !strcasecmp(format, "jpeg"))
         fileformat = FIF_JPEG;
 
-    FIBITMAP *bitmap = FreeImage_Allocate(scene.xres, scene.yres, bitesPerPixel);
+    FIBITMAP *bitmap = FreeImage_Allocate(scene.xres, scene.yres, 24);
     if (!bitmap) {
         std::cerr << "FreeImage export failed.\n";
         return FreeImage_DeInitialise();
@@ -133,9 +145,9 @@ void RayCaster::exportImage(const char *filename, const char *format, uint8_t bi
     RGBQUAD color;
     for (int y = 0; y < scene.yres; y++) {
         for (int x = 0; x < scene.xres; x++) {
-            color.rgbRed   = data[3 * (scene.xres * y + x)];
+            color.rgbRed = data[3 * (scene.xres * y + x)];
             color.rgbGreen = data[3 * (scene.xres * y + x) + 1];
-            color.rgbBlue  = data[3 * (scene.xres * y + x) + 2];
+            color.rgbBlue = data[3 * (scene.xres * y + x) + 2];
             FreeImage_SetPixelColor(bitmap, x, y, &color);
         }
     }

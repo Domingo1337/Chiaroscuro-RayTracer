@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
     } else {
         Model ourModel(scene.objFile);
         RayCaster renderer(ourModel, scene);
-        renderer.rayTrace(scene.VP, scene.LA, scene.UP);
+        renderer.rayTrace(scene.VP, scene.LA, scene.UP, scene.yview);
         renderer.exportImage("xd.jpg", "jpg");
     }
 

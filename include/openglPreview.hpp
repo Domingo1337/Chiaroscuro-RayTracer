@@ -50,7 +50,8 @@ void processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
         rayTraceee = true;
         if (rendererPtr && shouldRender) {
-            rendererPtr->rayTrace(camera.Position, camera.Front + camera.Position, camera.Up);
+            rendererPtr->rayTrace(camera.Position, camera.Front + camera.Position, camera.Up,
+                                  2 * tan(camera.Zoom * M_PI / 360.));
             // rendererPtr->rayTrace(camera.Position, camera.Front, camera.Up); nie ogarnąłem :^(
             shouldRender = false;
         }
@@ -150,6 +151,7 @@ class OpenGLPreview {
 
         camera.Position = scene->VP;
         camera.Front = scene->LA - scene->VP;
+        camera.Zoom = glm::degrees(2.f * atanf(0.5f * scene->yview));
     };
 
     void setModel(Model *model) { this->ourModel = model; }
@@ -249,7 +251,7 @@ class OpenGLPreview {
             } else {
                 glm::mat4 model, view, projection;
                 view = camera.GetViewMatrix();
-                projection = glm::perspective(yfov * 0.92f, (float)xres / (float)yres, 0.1f, 100.0f);
+                projection = glm::perspective(glm::radians(camera.Zoom), (float)xres / (float)yres, 0.1f, 100.0f);
                 // model = glm::rotate(model, rotateY, glm::vec3(0.0f, 1.0f, 0.0f));
                 // model = glm::translate(model, glm::vec3(0.0f, -1.75f, 0.0f));
                 // model = glm::scale(model, glm::vec3(0.2f));
