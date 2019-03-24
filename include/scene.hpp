@@ -61,6 +61,9 @@ Scene::Scene(std::string filename) {
         input >> temp.position.x >> temp.position.y >> temp.position.z;
         input >> temp.color.r >> temp.color.g >> temp.color.b;
         input >> temp.intensity;
+        temp.color.r /= 255.f;
+        temp.color.g /= 255.f;
+        temp.color.b /= 255.f;
         lights.push_back(temp);
     }
     input.close();

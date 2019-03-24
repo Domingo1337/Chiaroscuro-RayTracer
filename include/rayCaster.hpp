@@ -21,9 +21,9 @@ class RayCaster {
     void printPPM(std::ostream &ostream);
 
     /* Intersect ray specified by origin and direction with every triangle in the model,
-       storing the hitpoint's position in cross and color in pixel */
-    bool intersectRayModel(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &pixel, glm::vec3 &cross,
-                           bool shadowRay);
+       storing the hitpoint in params: cross, normal, color */
+    bool intersectRayModel(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &cross, glm::vec3 &normal,
+                           Color &color, bool shadowRay);
 
     /* Export image to file using FreeImage library. Default format is png. 24 bites per pixel */
     void exportImage(const char *filename, const char *format);
@@ -35,8 +35,8 @@ class RayCaster {
           data(scene.yres * scene.xres * 3) {}
 };
 
-bool RayCaster::intersectRayModel(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &pixel,
-                                  glm::vec3 &cross, bool shadowRay = false) {
+bool RayCaster::intersectRayModel(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &cross,
+                                  glm::vec3 &normal, Color &color, bool shadowRay = false) {
     float minDist = FLT_MAX;
     Mesh *closestMesh = NULL;
 
@@ -53,20 +53,23 @@ bool RayCaster::intersectRayModel(const glm::vec3 &origin, const glm::vec3 &dire
             glm::vec3 baryPosition;
             if (glm::intersectRayTriangle(origin, direction, A, B, C, baryPosition) && baryPosition.z < minDist) {
                 if (shadowRay) {
-                    pixel = mesh.color.diffuse;
                     return true;
                 }
                 minDist = baryPosition.z;
                 closestMesh = &mesh;
+                // normal = baryPosition.x * vertices[indices[i]].Normal +
+                //          baryPosition.y * vertices[indices[i + 1]].Normal +
+                //          baryPosition.z * vertices[indices[i + 2]].Normal;
+                normal =
+                    vertices[indices[i]].Normal + vertices[indices[i + 1]].Normal + vertices[indices[i + 2]].Normal;
             }
         }
     }
     if (closestMesh) {
         cross = origin + minDist * direction;
-        pixel = closestMesh->color.diffuse;
+        color = closestMesh->color;
         return true;
     }
-    pixel = {0.f, 0.f, 0.f};
     return false;
 }
 
@@ -89,23 +92,35 @@ void RayCaster::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
     for (int y = 0; y < scene.yres; y++, current += dy) {
         glm::vec3 currentRay = current;
         for (int x = 0; x < scene.xres; x++, currentRay += dx) {
+            pixels[y][x] = {0.f, 0.f, 0.f};
             glm::vec3 cross;
-            if (intersectRayModel(eye, currentRay, pixels[y][x], cross) && scene.k) {
-                /*  check for shadow rays */
+            glm::vec3 normal;
+            Color color;
+            if (intersectRayModel(eye, currentRay, cross, normal, color) && scene.k) {
+                // 0.01 is just a number with no meaning
+                pixels[y][x] = 0.01f * color.ambient;
                 for (auto &light : scene.lights) {
-                    glm::vec3 temp_pixel, temp_cross;
-                    if (intersectRayModel(cross + (0.0001f * (light.position - cross)), (light.position - cross),
-                                          temp_pixel, temp_cross)) {
-                        // just to show which mesh blocked the light we set the pixel color to mesh's (darker) color
-                        pixels[y][x] = 0.5f * temp_pixel;
+                    /* render lights */
+                    if (glm::areCollinear(currentRay, light.position - eye, 0.005f)) {
+                        pixels[y][x] = light.color;
+                        break;
+                    }
+                    glm::vec3 tempCross, tempNormal;
+                    Color tempColor;
+                    if (!intersectRayModel(cross + (0.0001f * (light.position - cross)), (light.position - cross),
+                                           tempCross, tempNormal, tempColor)) {
+                        /* Phong's model */
+                        glm::vec3 V = glm::normalize(eye - cross);
+                        glm::vec3 N = glm::normalize(normal);
+                        glm::vec3 L = glm::normalize(light.position - cross);
+                        glm::vec3 R = glm::normalize(2.f * (glm::dot(L, N)) * N - L);
+
+                        // some more meaningless numbers here, just so the render looks somewhat decent
+                        glm::vec3 phong = 0.01f * color.ambient + color.diffuse * glm::dot(L, N) +
+                                              0.1f * color.specular * glm::pow(glm::dot(R, V), 10.f);
+                        pixels[y][x] += phong * light.color;
                     }
                 }
-            }
-
-            /* render lights */
-            for (auto &light : scene.lights) {
-                if (glm::areCollinear(currentRay, light.position - eye, 0.005f))
-                    pixels[y][x] = {1.f, 1.f, 1.f};
             }
 
             int i = 3 * ((scene.yres - y - 1) * scene.xres + x);
