@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
         Model ourModel(scene.objFile);
         RayCaster renderer(ourModel, scene);
         preview.setModel(&ourModel);
-        rendererPtr = &renderer;
+        preview.setRenderer(&renderer);
         preview.loop(renderer.getData(), scene.xres, scene.yres);
         renderer.exportImage("render.png", "png");
     } else {

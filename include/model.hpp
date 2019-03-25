@@ -26,7 +26,7 @@
 #include <string>
 #include <vector>
 
-unsigned int TextureFromFile(const char *path, const std::string &directory, bool gamma = false);
+Texture TextureFromFile(const char *path, const std::string &directory, bool gamma = false);
 
 class Model {
   public:
@@ -50,7 +50,7 @@ void Model::Draw(Shader shader) {
 
 void Model::loadModel(std::string path) {
     Assimp::Importer import;
-    const aiScene *scene = import.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenNormals);
+    const aiScene *scene = import.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
 
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
         std::cout << "ERROR::ASSIMP::" << import.GetErrorString() << "\n";
@@ -146,10 +146,8 @@ std::vector<Texture> Model::loadMaterialTextures(aiMaterial *mat, aiTextureType 
             }
         }
         if (!skip) { // if it hasn't been loaded before
-            Texture texture;
-            texture.id = TextureFromFile(str.C_Str(), directory);
+            Texture texture = TextureFromFile(str.C_Str(), directory);
             texture.type = typeName;
-            texture.path = str.C_Str();
             textures.push_back(texture);
             textures_loaded.push_back(texture);
         }
@@ -157,26 +155,28 @@ std::vector<Texture> Model::loadMaterialTextures(aiMaterial *mat, aiTextureType 
     return textures;
 }
 
-unsigned int TextureFromFile(const char *path, const std::string &directory, bool gamma) {
+Texture TextureFromFile(const char *path, const std::string &directory, bool gamma) {
+    Texture texture;
+
     std::string filename = std::string(path);
     filename = directory + '/' + filename;
 
-    unsigned int textureID;
-    glGenTextures(1, &textureID);
+    glGenTextures(1, &texture.id);
 
-    int width, height, nrComponents;
-    unsigned char *data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
-    if (data) {
+    texture.path = path;
+    texture.image = stbi_load(filename.c_str(), &texture.width, &texture.height, &texture.nrComponents, 0);
+    if (texture.image) {
         GLenum format;
-        if (nrComponents == 1)
+        if (texture.nrComponents == 1)
             format = GL_RED;
-        else if (nrComponents == 3)
+        else if (texture.nrComponents == 3)
             format = GL_RGB;
-        else if (nrComponents == 4)
+        else if (texture.nrComponents == 4)
             format = GL_RGBA;
 
-        glBindTexture(GL_TEXTURE_2D, textureID);
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glBindTexture(GL_TEXTURE_2D, texture.id);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, texture.width, texture.height, 0, format, GL_UNSIGNED_BYTE,
+                     texture.image);
         glGenerateMipmap(GL_TEXTURE_2D);
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -184,13 +184,13 @@ unsigned int TextureFromFile(const char *path, const std::string &directory, boo
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        stbi_image_free(data);
+        // stbi_image_free(data);
     } else {
         std::cout << "Texture failed to load at path: " << path << std::endl;
-        stbi_image_free(data);
+        stbi_image_free(texture.image);
     }
 
-    return textureID;
+    return texture;
 }
 
 #endif
