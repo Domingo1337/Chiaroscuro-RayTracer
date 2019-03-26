@@ -58,33 +58,15 @@ bool RayCaster::intersectRayModel(const glm::vec3 &origin, const glm::vec3 &dire
                     return true;
                 }
                 minDist = baryPosition.z;
+                baryPosition.z = 1.f - baryPosition.x - baryPosition.y;
                 closestMesh = &mesh;
-                if (mesh.hasTexture()) {
-                    // if (A.TexCoords.x > 1.f || A.TexCoords.y > 1.f)
-                    //     std::cerr << "oh no the point coords are: {x:" << A.TexCoords.x << ", y:" << A.TexCoords.y <<
-                    //     "}\n";
-                    // if (B.TexCoords.x > 1.f || B.TexCoords.y > 1.f)
-                    //     std::cerr << "oh no the point coords are: {x:" << B.TexCoords.x << ", y:" << B.TexCoords.y <<
-                    //     "}\n";
-                    // if (C.TexCoords.x > 1.f || C.TexCoords.y > 1.f)
-                    //     std::cerr << "oh no the point coords are: {x:" << C.TexCoords.x << ", y:" << C.TexCoords.y <<
-                    //     "}\n";
-
-                    closestPos = A.TexCoords * baryPosition.x + B.TexCoords * baryPosition.y +
-                                 C.TexCoords * (1.f - baryPosition.x - baryPosition.y);
-                }
-                // normal = baryPosition.x * vertices[indices[i]].Normal +
-                //          baryPosition.y * vertices[indices[i + 1]].Normal +
-                //          baryPosition.z * vertices[indices[i + 2]].Normal;
-                normal = A.Normal + B.Normal + C.Normal;
+                closestPos = A.TexCoords * baryPosition.z + B.TexCoords * baryPosition.x + C.TexCoords * baryPosition.y;
+                normal = A.Normal * baryPosition.z + B.Normal * baryPosition.x + C.Normal * baryPosition.y;
             }
         }
     }
     if (closestMesh) {
         cross = origin + minDist * direction;
-        if (closestPos.x > 1.f || closestPos.y > 1.f) {
-            // std::cerr << "closestPos is more than 1 :( \tx:" << closestPos.x << " y:" << closestPos.y << "\n";
-        }
         color = closestMesh->getColorAt(closestPos);
         return true;
     }
@@ -114,32 +96,36 @@ void RayCaster::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
             glm::vec3 cross;
             glm::vec3 normal;
             Color color;
-            if (intersectRayModel(eye, currentRay, cross, normal, color) && scene.k) {
-                // 0.01 is just a number with no meaning
-                pixels[y][x] = 0.01f * color.ambient;
-                for (auto &light : scene.lights) {
-                    /* render lights */
-                    if (glm::areCollinear(currentRay, light.position - eye, 0.005f)) {
-                        pixels[y][x] = light.color;
-                        break;
-                    }
-                    glm::vec3 tempCross, tempNormal;
-                    Color tempColor;
-                    if (!intersectRayModel(cross + (0.0001f * (light.position - cross)), (light.position - cross),
-                                           tempCross, tempNormal, tempColor)) {
-                        /* Phong's model */
-                        glm::vec3 V = glm::normalize(eye - cross);
-                        glm::vec3 N = glm::normalize(normal);
-                        glm::vec3 L = glm::normalize(light.position - cross);
-                        glm::vec3 R = glm::normalize(2.f * (glm::dot(L, N)) * N - L);
+            if (intersectRayModel(eye, currentRay, cross, normal, color)) {
+                if (scene.k == 0) {
+                    pixels[y][x] = color.diffuse;
+                } else {
+                    // 0.01 is just a number with no meaning
+                    pixels[y][x] = 0.01f * color.ambient;
+                    for (auto &light : scene.lights) {
+                        /* render lights */
+                        if (glm::areCollinear(currentRay, light.position - eye, 0.005f)) {
+                            pixels[y][x] = light.color;
+                            break;
+                        }
+                        glm::vec3 tempCross, tempNormal;
+                        Color tempColor;
+                        if (!intersectRayModel(cross + (0.0001f * (light.position - cross)), (light.position - cross),
+                                               tempCross, tempNormal, tempColor)) {
+                            /* Phong's model */
+                            glm::vec3 V = glm::normalize(eye - cross);
+                            glm::vec3 N = glm::normalize(normal);
+                            glm::vec3 L = glm::normalize(light.position - cross);
+                            glm::vec3 R = glm::normalize(2.f * (glm::dot(L, N)) * N - L);
 
-                        // some more meaningless numbers here, just so the render looks somewhat decent
-                        glm::vec3 phong = 0.01f * color.ambient + color.diffuse * glm::dot(L, N) +
-                                          0.1f * color.specular * glm::pow(glm::dot(R, V), 10.f);
-                        phong.r = std::max(phong.r * light.color.r, 0.f);
-                        phong.g = std::max(phong.g * light.color.g, 0.f);
-                        phong.b = std::max(phong.b * light.color.b, 0.f);
-                        pixels[y][x] += phong;
+                            // some more meaningless numbers here, just so the render looks somewhat decent
+                            glm::vec3 phong = 0.01f * color.ambient + color.diffuse * glm::dot(L, N) +
+                                              0.1f * color.specular * glm::pow(glm::dot(R, V), 10.f);
+                            phong.r = std::max(phong.r * light.color.r, 0.f);
+                            phong.g = std::max(phong.g * light.color.g, 0.f);
+                            phong.b = std::max(phong.b * light.color.b, 0.f);
+                            pixels[y][x] += phong;
+                        }
                     }
                 }
             }

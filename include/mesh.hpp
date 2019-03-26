@@ -53,15 +53,16 @@ class Mesh {
     bool hasTexture() { return textureNormal || textureHeight || textureDiffuse || textureSpecular; }
     Color getColorAt(glm::vec2 coords) {
         Color _color = this->color;
-        int x, y;
+
+        // assuming the texture is reapeated
         while (coords.x > 1.f) coords.x -= 1.f;
         while (coords.x < 0.f) coords.x += 1.f;
         while (coords.y > 1.f) coords.y -= 1.f;
         while (coords.y < 0.f) coords.y += 1.f;
 
         if (textureDiffuse) {
-            x = coords.x * textureDiffuse->width;
-            y = coords.y * textureDiffuse->height;
+            int x = coords.x * textureDiffuse->width;
+            int y = coords.y * textureDiffuse->height;
             unsigned char *pixel =
                 &textureDiffuse->image[(y * textureDiffuse->width + x) * textureDiffuse->nrComponents];
             _color.diffuse.r = (float)(*pixel) / 255.f;
@@ -69,8 +70,8 @@ class Mesh {
             _color.diffuse.b = (float)(*(pixel + 2)) / 255.f;
         }
         if (textureSpecular) {
-            x = coords.x * textureSpecular->width;
-            y = coords.y * textureSpecular->height;
+            int x = coords.x * textureSpecular->width;
+            int y = coords.y * textureSpecular->height;
             unsigned char *pixel =
                 &textureSpecular->image[(y * textureSpecular->width + x) * textureSpecular->nrComponents];
             _color.diffuse.r = (float)(*pixel) / 255.f;
@@ -128,6 +129,19 @@ void Mesh::setupMesh() {
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, TexCoords));
 
     glBindVertexArray(0);
+
+    for (unsigned int i = 0; i < textures.size(); i++) {
+        std::string name = textures[i].type;
+        if (name == "texture_diffuse")
+            textureDiffuse = &textures[i];
+        else if (name == "texture_specular")
+            textureSpecular = &textures[i];
+
+        else if (name == "texture_normal")
+            textureNormal = &textures[i];
+        else if (name == "texture_height")
+            textureHeight = &textures[i];
+    }
 }
 
 void Mesh::Draw(Shader shader) {
@@ -142,24 +156,17 @@ void Mesh::Draw(Shader shader) {
         std::string name = textures[i].type;
         if (name == "texture_diffuse") {
             number = std::to_string(diffuseNr++);
-            textureDiffuse = &textures[i];
         } else if (name == "texture_specular") {
             number = std::to_string(specularNr++); // transfer unsigned int to stream
-            textureSpecular = &textures[i];
-
         } else if (name == "texture_normal") {
             number = std::to_string(normalNr++); // transfer unsigned int to stream
-
-            textureNormal = &textures[i];
         } else if (name == "texture_height") {
             number = std::to_string(heightNr++); // transfer unsigned int to stream
-            textureHeight = &textures[i];
         }
         glUniform1i(glGetUniformLocation(shader.ID, (name + number).c_str()), i);
         shader.setFloat(("material." + name + number).c_str(), i);
         glBindTexture(GL_TEXTURE_2D, textures[i].id);
     }
-
     // draw mesh
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
