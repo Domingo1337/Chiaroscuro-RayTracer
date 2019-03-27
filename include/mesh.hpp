@@ -32,11 +32,13 @@ struct Texture {
 };
 
 struct Color {
-    Color() : ambient({0.2f, 0.2f, 0.2f}), diffuse({0.5f, 0.5f, 0.5f}), specular({0.7f, 0.7f, 0.7f}){};
-    Color(glm::vec3 ambi, glm::vec3 diff, glm::vec3 spec) : ambient(ambi), diffuse(diff), specular(spec){};
+    Color() : ambient({0.2f, 0.2f, 0.2f}), diffuse({0.5f, 0.5f, 0.5f}), specular({0.7f, 0.7f, 0.7f}), shininess(5.f){};
+    Color(glm::vec3 ambi, glm::vec3 diff, glm::vec3 spec, float shin)
+        : ambient(ambi), diffuse(diff), specular(spec), shininess(shin){};
     glm::vec3 ambient;
     glm::vec3 diffuse;
     glm::vec3 specular;
+    float shininess;
 };
 
 class Mesh {
@@ -83,7 +85,7 @@ class Mesh {
     }
     // Functions
     Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture> textures, Color color);
-    void Draw(Shader shader);
+    void Draw(Shader shaderTexture, Shader shaderMaterial);
 
   private:
     // Render data
@@ -144,29 +146,41 @@ void Mesh::setupMesh() {
     }
 }
 
-void Mesh::Draw(Shader shader) {
+void Mesh::Draw(Shader shaderTexture, Shader shaderMaterial) {
     unsigned int diffuseNr = 1;
     unsigned int specularNr = 1;
     unsigned int normalNr = 1;
     unsigned int heightNr = 1;
-    for (unsigned int i = 0; i < textures.size(); i++) {
-        glActiveTexture(GL_TEXTURE0 + i); // active proper texture unit before binding
-        // retrieve texture number (the N in diffuse_textureN)
-        std::string number;
-        std::string name = textures[i].type;
-        if (name == "texture_diffuse") {
-            number = std::to_string(diffuseNr++);
-        } else if (name == "texture_specular") {
-            number = std::to_string(specularNr++); // transfer unsigned int to stream
-        } else if (name == "texture_normal") {
-            number = std::to_string(normalNr++); // transfer unsigned int to stream
-        } else if (name == "texture_height") {
-            number = std::to_string(heightNr++); // transfer unsigned int to stream
+    unsigned int textSize = textures.size();
+    if (textSize > 0) {
+        shaderTexture.use();
+        for (unsigned int i = 0; i < textSize; i++) {
+            glActiveTexture(GL_TEXTURE0 + i); // active proper texture unit before binding
+            // retrieve texture number (the N in diffuse_textureN)
+            std::string number;
+            std::string name = textures[i].type;
+            if (name == "texture_diffuse") {
+                number = std::to_string(diffuseNr++);
+            } else if (name == "texture_specular") {
+                number = std::to_string(specularNr++); // transfer unsigned int to stream
+            } else if (name == "texture_normal") {
+                number = std::to_string(normalNr++); // transfer unsigned int to stream
+            } else if (name == "texture_height") {
+                number = std::to_string(heightNr++); // transfer unsigned int to stream
+            }
+            glUniform1i(glGetUniformLocation(shaderTexture.ID, (name + number).c_str()), i);
+            shaderTexture.setFloat(("material." + name + number).c_str(), i);
+            glBindTexture(GL_TEXTURE_2D, textures[i].id);
         }
-        glUniform1i(glGetUniformLocation(shader.ID, (name + number).c_str()), i);
-        shader.setFloat(("material." + name + number).c_str(), i);
-        glBindTexture(GL_TEXTURE_2D, textures[i].id);
+
+    } else {
+        shaderMaterial.use();
+        shaderMaterial.setVec3("material.ambient", color.ambient);
+        shaderMaterial.setVec3("material.diffuse", color.diffuse);
+        shaderMaterial.setVec3("material.specular", color.specular);
+        shaderMaterial.setFloat("material.shininess", color.shininess);
     }
+
     // draw mesh
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);

@@ -14,6 +14,7 @@ class OpenGLPreview {
     Scene *scene;
     Shader shaderSimple;
     Shader shaderScreen;
+    Shader shaderMaterial;
     Model *ourModel;
     Camera camera;
     bool rayTraceee = false;
@@ -74,10 +75,11 @@ class OpenGLPreview {
             camera->ProcessMouseScroll(yoffset);
         });
 
-        glClearColor(0.5f, 0.3f, 0.3f, 1.0f);
+        glClearColor(0.f, 0.f, 0.f, 1.0f);
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         this->shaderSimple = Shader("shader/simple_vs.glsl", "shader/simple_fs.glsl");
         this->shaderScreen = Shader("shader/screen.vs", "shader/screen.fs");
+        this->shaderMaterial = Shader("shader/material.vs", "shader/material.fs");
         this->scene = scene;
         this->xres = scene->xres;
         this->yres = scene->yres;
@@ -162,7 +164,7 @@ class OpenGLPreview {
             // per-frame time logic
             // --------------------
 
-            if (glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS) {
+            if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
                 rayTraceee = true;
                 if (rendererPtr && shouldRender) {
                     rendererPtr->rayTrace(camera.Position, camera.Front + camera.Position, camera.Up,
@@ -173,7 +175,7 @@ class OpenGLPreview {
                 shouldRender = true;
             }
 
-            if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
+            if (glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS) {
                 if (shouldSwitch)
                     rayTraceee = !rayTraceee;
                 shouldSwitch = false;
@@ -232,7 +234,19 @@ class OpenGLPreview {
                 shaderSimple.setMat4("view", view);
                 shaderSimple.setMat4("projection", projection);
 
-                ourModel->Draw(shaderSimple);
+                shaderMaterial.use();
+                shaderMaterial.setMat4("model", model);
+                shaderMaterial.setMat4("view", view);
+                shaderMaterial.setMat4("projection", projection);
+
+                // care only about first light, it's just a preview
+                shaderMaterial.setVec3("light.position", scene->lights[0].position);
+                shaderMaterial.setVec3("viewPos", camera.Position);
+                shaderMaterial.setVec3("light.ambient", scene->ambientLight);
+                shaderMaterial.setVec3("light.diffuse", scene->lights[0].color);
+                shaderMaterial.setVec3("light.specular", scene->lights[0].color);
+
+                ourModel->Draw(shaderSimple, shaderMaterial);
             }
             // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved
             // etc.)

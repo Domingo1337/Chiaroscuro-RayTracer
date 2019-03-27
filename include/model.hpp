@@ -31,7 +31,7 @@ Texture TextureFromFile(const char *path, const std::string &directory, bool gam
 class Model {
   public:
     Model(std::string path) { loadModel(path); };
-    void Draw(Shader shader);
+    void Draw(Shader shaderTexture, Shader shaderMaterial);
     std::vector<Mesh> meshes;
 
   private:
@@ -43,9 +43,9 @@ class Model {
     std::vector<Texture> loadMaterialTextures(aiMaterial *mat, aiTextureType type, std::string typeName);
 };
 
-void Model::Draw(Shader shader) {
+void Model::Draw(Shader shaderTexture, Shader shaderMaterial) {
     for (unsigned int i = 0; i < meshes.size(); i++)
-        meshes[i].Draw(shader);
+        meshes[i].Draw(shaderTexture, shaderMaterial);
 }
 
 void Model::loadModel(std::string path) {
@@ -119,6 +119,7 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene) {
         meshColor.diffuse = {color.r, color.g, color.b};
         material->Get(AI_MATKEY_COLOR_SPECULAR, color);
         meshColor.specular = {color.r, color.g, color.b};
+        material->Get(AI_MATKEY_SHININESS, meshColor.shininess);
 
         std::vector<Texture> diffuseMaps = loadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_diffuse");
         textures.insert(textures.end(), diffuseMaps.begin(), diffuseMaps.end());

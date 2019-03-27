@@ -100,8 +100,7 @@ void RayCaster::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
                 if (scene.k == 0) {
                     pixels[y][x] = color.diffuse;
                 } else {
-                    // 0.01 is just a number with no meaning
-                    pixels[y][x] = 0.01f * color.ambient;
+                    pixels[y][x] = scene.ambientLight * color.ambient;
                     for (auto &light : scene.lights) {
                         /* render lights */
                         if (glm::areCollinear(currentRay, light.position - eye, 0.005f)) {
@@ -117,23 +116,25 @@ void RayCaster::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
                             glm::vec3 N = glm::normalize(normal);
                             glm::vec3 L = glm::normalize(light.position - cross);
                             glm::vec3 R = glm::normalize(2.f * (glm::dot(L, N)) * N - L);
-
-                            // some more meaningless numbers here, just so the render looks somewhat decent
-                            glm::vec3 phong = 0.01f * color.ambient + color.diffuse * glm::dot(L, N) +
-                                              0.1f * color.specular * glm::pow(glm::dot(R, V), 10.f);
+                            float distance = glm::distance(cross, light.position);
+                            float attentuation = 1.f; //(1.f / (1.f + distance * distance));
+                            glm::vec3 phong = color.diffuse * glm::max(glm::dot(L, N), 0.f) +
+                                              color.specular * glm::pow(glm::max(glm::dot(R, V), 0.f), color.shininess);
                             phong.r = std::max(phong.r * light.color.r, 0.f);
                             phong.g = std::max(phong.g * light.color.g, 0.f);
                             phong.b = std::max(phong.b * light.color.b, 0.f);
-                            pixels[y][x] += phong;
+
+                            // some meaningless number here, just so the render looks somewhat decent
+                            pixels[y][x] += phong * attentuation * light.intensity * 0.05f;
                         }
                     }
                 }
             }
 
             int i = 3 * ((scene.yres - y - 1) * scene.xres + x);
-            data[i] = (uint8_t)(pixels[y][x].r * 255.f);
-            data[i + 1] = (uint8_t)(pixels[y][x].g * 255.f);
-            data[i + 2] = (uint8_t)(pixels[y][x].b * 255.f);
+            data[i] = (uint8_t)(255.f * glm::min(1.f, pixels[y][x].r));
+            data[i + 1] = (uint8_t)(255.f * glm::min(1.f, pixels[y][x].g));
+            data[i + 2] = (uint8_t)(255.f * glm::min(1.f, pixels[y][x].b));
         }
     }
 }

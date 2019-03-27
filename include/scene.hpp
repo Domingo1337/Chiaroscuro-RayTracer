@@ -40,6 +40,7 @@ class Scene {
     glm::vec3 LA;
     glm::vec3 UP;
     float yview;
+    glm::vec3 ambientLight;
     std::vector<Light> lights;
 };
 
@@ -51,6 +52,7 @@ Scene::Scene(std::string filename) {
     input >> LA.x >> LA.y >> LA.z;
     input >> UP.x >> UP.y >> UP.z;
     input >> yview;
+    ambientLight = {0.1f, 0.1f, 0.1f};
     char c;
     while (input >> c) {
         if (c != 'L') {
@@ -64,8 +66,10 @@ Scene::Scene(std::string filename) {
         temp.color.r /= 255.f;
         temp.color.g /= 255.f;
         temp.color.b /= 255.f;
+        ambientLight += temp.color;
         lights.push_back(temp);
     }
+    ambientLight *= 0.01;
     input.close();
 }
 
