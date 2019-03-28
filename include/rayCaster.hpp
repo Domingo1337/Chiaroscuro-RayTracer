@@ -117,7 +117,8 @@ void RayCaster::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
                             glm::vec3 L = glm::normalize(light.position - cross);
                             glm::vec3 R = glm::normalize(2.f * (glm::dot(L, N)) * N - L);
                             float distance = glm::distance(cross, light.position);
-                            float attentuation = 1.f; //(1.f / (1.f + distance * distance));
+                            float attentuation = (1.f / (1.f + distance * distance));
+
                             glm::vec3 phong = color.diffuse * glm::max(glm::dot(L, N), 0.f) +
                                               color.specular * glm::pow(glm::max(glm::dot(R, V), 0.f), color.shininess);
                             phong.r = std::max(phong.r * light.color.r, 0.f);
@@ -130,11 +131,11 @@ void RayCaster::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
                     }
                 }
             }
-
+            glm::clamp(pixels[y][x], 0.f, 1.f);
             int i = 3 * ((scene.yres - y - 1) * scene.xres + x);
-            data[i] = (uint8_t)(255.f * glm::min(1.f, pixels[y][x].r));
-            data[i + 1] = (uint8_t)(255.f * glm::min(1.f, pixels[y][x].g));
-            data[i + 2] = (uint8_t)(255.f * glm::min(1.f, pixels[y][x].b));
+            data[i] =     (uint8_t)(255.f * pixels[y][x].r);
+            data[i + 1] = (uint8_t)(255.f * pixels[y][x].g);
+            data[i + 2] = (uint8_t)(255.f * pixels[y][x].b);
         }
     }
 }

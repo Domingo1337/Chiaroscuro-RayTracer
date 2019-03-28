@@ -138,7 +138,6 @@ void Mesh::setupMesh() {
             textureDiffuse = &textures[i];
         else if (name == "texture_specular")
             textureSpecular = &textures[i];
-
         else if (name == "texture_normal")
             textureNormal = &textures[i];
         else if (name == "texture_height")
