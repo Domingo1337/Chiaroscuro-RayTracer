@@ -2,34 +2,28 @@
 #define SCENE_H
 
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/intersect.hpp>
 
-#include <camera.hpp>
-#include <model.hpp>
-
-#include <fstream>
-#include <iostream>
 #include <string>
 #include <vector>
 
 struct Light {
-    glm::vec3 position;
+    Light(glm::vec3 _color, glm::vec3 _position);
     glm::vec3 color;
-    float &r = color.r;
-    float &g = color.g;
-    float &b = color.b;
-    float &x = position.x;
-    float &y = position.y;
-    float &z = position.z;
+    float &r;
+    float &g;
+    float &b;
+    glm::vec3 position;
+    float &x;
+    float &y;
+    float &z;
     float intensity;
 };
 
 class Scene {
   public:
-    Scene(std::string filename);
     Scene();
-    void transform(Model &model);
+    Scene(std::string filename);
+
     std::string comment;
     std::string objFile;
     std::string pngFile;
@@ -43,48 +37,5 @@ class Scene {
     glm::vec3 ambientLight;
     std::vector<Light> lights;
 };
-
-Scene::Scene(std::string filename) {
-    std::ifstream input(filename);
-    getline(input, comment);
-    input >> objFile >> pngFile >> k >> xres >> yres;
-    input >> VP.x >> VP.y >> VP.z;
-    input >> LA.x >> LA.y >> LA.z;
-    input >> UP.x >> UP.y >> UP.z;
-    input >> yview;
-    ambientLight = {0.1f, 0.1f, 0.1f};
-    char c;
-    while (input >> c) {
-        if (c != 'L') {
-            input.unget();
-            break;
-        }
-        Light temp;
-        input >> temp.position.x >> temp.position.y >> temp.position.z;
-        input >> temp.color.r >> temp.color.g >> temp.color.b;
-        input >> temp.intensity;
-        temp.color.r /= 255.f;
-        temp.color.g /= 255.f;
-        temp.color.b /= 255.f;
-        ambientLight += temp.color;
-        lights.push_back(temp);
-    }
-    ambientLight *= 0.01;
-    input.close();
-}
-
-void Scene::transform(Model &model) {
-    auto lookAtMtx = glm::lookAt(VP, LA, UP);
-    for (auto &light : lights) {
-        glm::vec4 temp(light.position.x, light.position.y, light.position.z, 1.f);
-        light.position = lookAtMtx * temp;
-    }
-    for (auto &mesh : model.meshes) {
-        for (auto &vertex : mesh.vertices) {
-            glm::vec4 temp(vertex.Position.x, vertex.Position.y, vertex.Position.z, 1.f);
-            vertex.Position = lookAtMtx * temp;
-        }
-    }
-}
 
 #endif
