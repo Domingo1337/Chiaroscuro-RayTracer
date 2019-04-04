@@ -8,18 +8,18 @@
 #include <glad/glad.h>
 
 Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture> textures,
-           Color color) {
+           Color materialColor) {
     this->vertices = vertices;
     this->indices = indices;
     this->textures = textures;
-    this->color = color;
+    this->materialColor = materialColor;
     setupMesh();
 }
 
 bool Mesh::hasTexture() { return textureNormal || textureHeight || textureDiffuse || textureSpecular; }
 
 Color Mesh::getColorAt(glm::vec2 coords) {
-    Color _color = this->color;
+    Color color = this->materialColor;
 
     // assuming the texture is reapeated
     while (coords.x > 1.f) coords.x -= 1.f;
@@ -31,21 +31,21 @@ Color Mesh::getColorAt(glm::vec2 coords) {
         int x = coords.x * textureDiffuse->width;
         int y = coords.y * textureDiffuse->height;
         unsigned char *pixel = &textureDiffuse->image[(y * textureDiffuse->width + x) * textureDiffuse->nrComponents];
-        _color.diffuse.r = (float)(*pixel) / 255.f;
-        _color.diffuse.g = (float)(*(pixel + 1)) / 255.f;
-        _color.diffuse.b = (float)(*(pixel + 2)) / 255.f;
+        color.diffuse.r = (float)(*pixel) / 255.f;
+        color.diffuse.g = (float)(*(pixel + 1)) / 255.f;
+        color.diffuse.b = (float)(*(pixel + 2)) / 255.f;
     }
     if (textureSpecular) {
         int x = coords.x * textureSpecular->width;
         int y = coords.y * textureSpecular->height;
         unsigned char *pixel =
             &textureSpecular->image[(y * textureSpecular->width + x) * textureSpecular->nrComponents];
-        _color.diffuse.r = (float)(*pixel) / 255.f;
-        _color.diffuse.g = (float)(*(pixel + 1)) / 255.f;
-        _color.diffuse.b = (float)(*(pixel + 2)) / 255.f;
+        color.specular.r = (float)(*pixel) / 255.f;
+        color.specular.g = (float)(*(pixel + 1)) / 255.f;
+        color.specular.b = (float)(*(pixel + 2)) / 255.f;
     }
 
-    return _color;
+    return color;
 }
 
 void Mesh::Draw(Shader shaderTexture, Shader shaderMaterial) {
@@ -77,10 +77,10 @@ void Mesh::Draw(Shader shaderTexture, Shader shaderMaterial) {
 
     } else {
         shaderMaterial.use();
-        shaderMaterial.setVec3("material.ambient", color.ambient);
-        shaderMaterial.setVec3("material.diffuse", color.diffuse);
-        shaderMaterial.setVec3("material.specular", color.specular);
-        shaderMaterial.setFloat("material.shininess", color.shininess);
+        shaderMaterial.setVec3("material.ambient", materialColor.ambient);
+        shaderMaterial.setVec3("material.diffuse", materialColor.diffuse);
+        shaderMaterial.setVec3("material.specular", materialColor.specular);
+        shaderMaterial.setFloat("material.shininess", materialColor.shininess);
     }
 
     // draw mesh

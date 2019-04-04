@@ -47,7 +47,7 @@ class Mesh {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
     std::vector<Texture> textures;
-    Color color;
+    Color materialColor;
     Texture *textureNormal = NULL;
     Texture *textureHeight = NULL;
     Texture *textureDiffuse = NULL;

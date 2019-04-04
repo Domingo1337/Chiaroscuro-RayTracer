@@ -7,15 +7,23 @@
 #include <vector>
 
 struct Light {
-    Light(glm::vec3 _color, glm::vec3 _position);
-    glm::vec3 color;
-    float &r;
-    float &g;
-    float &b;
-    glm::vec3 position;
-    float &x;
-    float &y;
-    float &z;
+    Light(glm::vec3 _color, glm::vec3 _position, float _intensity);
+    union {
+        glm::vec3 color;
+        struct {
+            float r;
+            float g;
+            float b;
+        };
+    };
+    union {
+        glm::vec3 position;
+        struct {
+            float x;
+            float y;
+            float z;
+        };
+    };
     float intensity;
 };
 

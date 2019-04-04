@@ -136,6 +136,11 @@ void OpenGLPreview::processInputs(float deltaTime) {
         shouldRequestRender = true;
     }
 
+    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) {
+        screen.renderer->normalizeImage();
+        screen.updateScreen();
+    }
+
     if (glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS) {
         if (shouldSwitch)
             showRender = !showRender;
