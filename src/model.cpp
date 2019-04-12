@@ -116,11 +116,9 @@ Texture TextureFromFile(const char *path, const std::string &directory) {
     texture.path = path;
     texture.image = stbi_load(filename.c_str(), &texture.width, &texture.height, &texture.nrComponents, 0);
     if (texture.image) {
-        GLenum format;
+        GLenum format = GL_RGB;
         if (texture.nrComponents == 1)
             format = GL_RED;
-        else if (texture.nrComponents == 3)
-            format = GL_RGB;
         else if (texture.nrComponents == 4)
             format = GL_RGBA;
 

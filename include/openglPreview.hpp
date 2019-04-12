@@ -4,20 +4,23 @@
 #include "camera.hpp"
 #include "shader.hpp"
 
-class RayCaster;
+class RayTracer;
 class GLFWwindow;
 class Scene;
 class Model;
 
 class OpenGLPreview {
   public:
-    OpenGLPreview(Scene *_scene, unsigned int _previewHeight);
+    OpenGLPreview(Scene *_scene, unsigned int _previewHeight, bool usingOpenGLPreview);
 
     void setModel(Model *model);
-    void setRenderer(RayCaster *renderer);
+    void setRenderer(RayTracer *renderer);
     void loop();
 
   private:
+    void setCallbacks();
+    void processInputs(float deltaTime);
+
     struct Screen {
         Screen();
         Screen(int texWidth, int texHeight);
@@ -42,14 +45,10 @@ class OpenGLPreview {
         unsigned int VBO, VAO, EBO;
         unsigned int texture;
         Shader shader;
-        RayCaster *renderer;
-    };
-
-    void setCallbacks();
-    void processInputs(float deltaTime);
+        RayTracer *renderer;
+    } screen;
 
     Scene *scene;
-    Screen screen;
     Shader shaderTextured;
     Shader shaderMaterial;
     Model *model;

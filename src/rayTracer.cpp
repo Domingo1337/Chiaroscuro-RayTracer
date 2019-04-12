@@ -1,4 +1,4 @@
-#include "rayCaster.hpp"
+#include "rayTracer.hpp"
 #include "model.hpp"
 
 #include <FreeImage.h>
@@ -8,11 +8,11 @@
 
 #include <iostream>
 
-RayCaster::RayCaster(Model &_model, Scene &_scene)
+RayTracer::RayTracer(Model &_model, Scene &_scene)
     : model(_model), scene(_scene), pixels(scene.yres, std::vector<glm::vec3>(scene.xres)),
-      data(scene.yres * scene.xres * 3) {}
+      data(scene.yres * scene.xres * 3), kdtree(_model) {}
 
-void RayCaster::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1.f, 0.f}, float yview = 1.f) {
+void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1.f, 0.f}, float yview = 1.f) {
     float z = 1.f;
     float y = z * 0.5f * yview;
     float x = y * ((float)scene.xres / (float)scene.yres);
@@ -33,7 +33,7 @@ void RayCaster::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
 
     glm::vec3 current = leftUpper + 0.5f * (dy + dx);
     for (unsigned y = 0; y < scene.yres; y++, current += dy) {
-        std::cerr << y << "/" << scene.yres << "... ";
+        // std::cerr << y << "/" << scene.yres << "... ";
 
         glm::vec3 currentRay = current;
         for (unsigned x = 0; x < scene.xres; x++, currentRay += dx) {
@@ -50,15 +50,15 @@ void RayCaster::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
             data[i++] = (uint8_t)(255.f * pixel.b);
         }
     }
-    std::cerr << "Done!\nMaxVal is" << maxVal << "\n";
+    // std::cerr << "Done!\nMaxVal is" << maxVal << "\n";
 }
 
-glm::vec3 RayCaster::sendRay(glm::vec3 origin, glm::vec3 dir, int k) {
+glm::vec3 RayTracer::sendRay(glm::vec3 origin, glm::vec3 dir, int k) {
     glm::vec3 pixel = {0.f, 0.f, 0.f};
     glm::vec3 cross;
     glm::vec3 normal;
     Color color;
-    if (intersectRayModel(origin, dir, cross, normal, color)) {
+    if (intersectRayKDTree(origin, dir, cross, normal, color)) {
         if (k == 0) {
             pixel = color.diffuse;
         } else {
@@ -76,7 +76,7 @@ glm::vec3 RayCaster::sendRay(glm::vec3 origin, glm::vec3 dir, int k) {
 
                 glm::vec3 tempCross, tempNormal;
                 Color tempColor;
-                if (!intersectShadowRayModel(cross + (0.0001f * (light.position - cross)), (light.position - cross))) {
+                if (!kdtree.intersectShadowRay(cross + (0.0001f * light.position), (light.position - cross))) {
 
                     /* Phong's model */
                     glm::vec3 L = glm::normalize(light.position - cross);
@@ -99,7 +99,7 @@ glm::vec3 RayCaster::sendRay(glm::vec3 origin, glm::vec3 dir, int k) {
     return pixel;
 }
 
-bool RayCaster::intersectShadowRayModel(const glm::vec3 &origin, const glm::vec3 &direction) {
+bool RayTracer::intersectShadowRayModel(const glm::vec3 &origin, const glm::vec3 &direction) {
     glm::vec3 baryPosition;
     for (auto &mesh : model.meshes) {
         auto &indices = mesh.indices;
@@ -117,7 +117,23 @@ bool RayCaster::intersectShadowRayModel(const glm::vec3 &origin, const glm::vec3
     return false;
 }
 
-bool RayCaster::intersectRayModel(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &cross,
+bool RayTracer::intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &cross,
+                                   glm::vec3 &normal, Color &color) {
+    glm::vec3 baryPos;
+    Triangle *triangle = kdtree.intersectRay(origin, direction, baryPos);
+    if (triangle) {
+        normal = triangle->v1.Normal * (1.f - baryPos.x - baryPos.y) + triangle->v2.Normal * baryPos.x +
+                 triangle->v3.Normal * baryPos.y;
+        if (triangle->mesh)
+            color = triangle->mesh->getColorAt(triangle->v1.TexCoords * (1.f - baryPos.x - baryPos.y) +
+                                               triangle->v2.TexCoords * baryPos.x + triangle->v3.TexCoords * baryPos.y);
+        cross = origin + baryPos.z * direction;
+        return true;
+    }
+    return false;
+}
+
+bool RayTracer::intersectRayModel(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &cross,
                                   glm::vec3 &normal, Color &color) {
     float minDist = FLT_MAX;
     Mesh *closestMesh = NULL;
@@ -152,11 +168,11 @@ bool RayCaster::intersectRayModel(const glm::vec3 &origin, const glm::vec3 &dire
     return false;
 }
 
-uint8_t *RayCaster::getData() { return data.data(); }
+uint8_t *RayTracer::getData() { return data.data(); }
 
-void RayCaster::normalizeImage() { normalizeImage(maxVal); }
+void RayTracer::normalizeImage() { normalizeImage(maxVal); }
 
-void RayCaster::normalizeImage(float max) {
+void RayTracer::normalizeImage(float max) {
     if (max == 0.f)
         return;
     float inversedMax = 1 / max;
@@ -171,7 +187,7 @@ void RayCaster::normalizeImage(float max) {
     }
 }
 
-void RayCaster::exportImage(const char *filename, const char *format) {
+void RayTracer::exportImage(const char *filename, const char *format) {
     FreeImage_Initialise();
 
     FREE_IMAGE_FORMAT fileformat = FIF_PNG;

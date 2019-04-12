@@ -1,6 +1,6 @@
 #include "model.hpp"
 #include "openglPreview.hpp"
-#include "rayCaster.hpp"
+#include "rayTracer.hpp"
 
 /* TODO:
  *   Calculate normals if they are not given in obj file.
@@ -11,9 +11,9 @@ int main(int argc, char *argv[]) {
     unsigned int previewHeight = 900;
 
     Scene scene(argc > 1 ? argv[1] : "view_test.rtc");
-    OpenGLPreview preview(&scene, previewHeight);
+    OpenGLPreview preview(&scene, previewHeight, usingOpenGLPreview);
     Model model(scene.objFile);
-    RayCaster renderer(model, scene);
+    RayTracer renderer(model, scene);
 
     if (usingOpenGLPreview) {
         preview.setModel(&model);
@@ -21,6 +21,7 @@ int main(int argc, char *argv[]) {
         preview.loop();
     } else {
         renderer.rayTrace(scene.VP, scene.LA, scene.UP, scene.yview);
+        renderer.normalizeImage();
     }
 
     renderer.exportImage("render.png", "png");

@@ -1,6 +1,6 @@
 #include "openglPreview.hpp"
 #include "model.hpp"
-#include "rayCaster.hpp"
+#include "rayTracer.hpp"
 #include "scene.hpp"
 
 #include <glad/glad.h>
@@ -9,14 +9,15 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 
-OpenGLPreview::OpenGLPreview(Scene *_scene, unsigned int _previewHeight)
+OpenGLPreview::OpenGLPreview(Scene *_scene, unsigned int _previewHeight, bool usingOpenGLPreview)
     : scene(_scene), previewHeight(_previewHeight), previewWidth(((double)_scene->xres / _scene->yres) * previewHeight),
       camera(_scene->VP, glm::normalize(_scene->LA - _scene->VP)), showRender(false) {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
+    if (!usingOpenGLPreview)
+        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
     window = glfwCreateWindow(previewWidth, previewHeight, "Chiaroscuro", NULL, NULL);
     if (window == NULL) {
         std::cerr << "Failed to create GLFW window" << std::endl;
@@ -30,19 +31,21 @@ OpenGLPreview::OpenGLPreview(Scene *_scene, unsigned int _previewHeight)
         exit(1);
     }
 
-    setCallbacks();
-    glClearColor(0.f, 0.f, 0.f, 1.0f);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    if (usingOpenGLPreview) {
+        setCallbacks();
+        glClearColor(0.f, 0.f, 0.f, 1.0f);
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-    shaderTextured = Shader("shader/simple_vs.glsl", "shader/simple_fs.glsl");
-    shaderMaterial = Shader("shader/material.vs", "shader/material.fs");
-    camera.Zoom = glm::degrees(2.f * atanf(0.5f * scene->yview));
-    screen = Screen(scene->xres, scene->yres);
+        shaderTextured = Shader("shader/simple_vs.glsl", "shader/simple_fs.glsl");
+        shaderMaterial = Shader("shader/material.vs", "shader/material.fs");
+        camera.Zoom = glm::degrees(2.f * atanf(0.5f * scene->yview));
+        screen = Screen(scene->xres, scene->yres);
+    }
 }
 
 void OpenGLPreview::setModel(Model *_model) { model = _model; }
 
-void OpenGLPreview::setRenderer(RayCaster *renderer) { screen.renderer = renderer; }
+void OpenGLPreview::setRenderer(RayTracer *renderer) { screen.renderer = renderer; }
 
 void OpenGLPreview::loop() {
     float deltaTime = 0.0f; // Time between left_upper frame and last frame
