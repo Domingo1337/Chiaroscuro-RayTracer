@@ -8,15 +8,17 @@
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
+#include"utilities.hpp"
 
-OpenGLPreview::OpenGLPreview(Scene *_scene, unsigned int _previewHeight, bool usingOpenGLPreview)
-    : scene(_scene), previewHeight(_previewHeight), previewWidth(((double)_scene->xres / _scene->yres) * previewHeight),
+OpenGLPreview::OpenGLPreview(Scene *_scene)
+    : scene(_scene), previewHeight(_scene->previewHeight),
+      previewWidth(((double)_scene->xres / _scene->yres) * _scene->previewHeight),
       camera(_scene->VP, glm::normalize(_scene->LA - _scene->VP)), showRender(false) {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    if (!usingOpenGLPreview)
+    if (!scene->usingOpenGLPreview)
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
     window = glfwCreateWindow(previewWidth, previewHeight, "Chiaroscuro", NULL, NULL);
     if (window == NULL) {
@@ -31,7 +33,7 @@ OpenGLPreview::OpenGLPreview(Scene *_scene, unsigned int _previewHeight, bool us
         exit(1);
     }
 
-    if (usingOpenGLPreview) {
+    if (scene->usingOpenGLPreview) {
         setCallbacks();
         glClearColor(0.f, 0.f, 0.f, 1.0f);
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -67,7 +69,7 @@ void OpenGLPreview::loop() {
 
             glm::mat4 _model, view, projection;
             view = camera.GetViewMatrix();
-            projection = glm::perspective(glm::radians(camera.Zoom), (float)scene->xres / scene->yres, 0.1f, 100.f);
+            projection = glm::perspective(glm::radians(camera.Zoom), (float)scene->xres / scene->yres, 0.1f, 1000.f);
 
             shaderTextured.setMat4("model", _model);
             shaderTextured.setMat4("view", view);
@@ -150,6 +152,9 @@ void OpenGLPreview::processInputs(float deltaTime) {
         shouldSwitch = false;
     } else {
         shouldSwitch = true;
+    }
+     if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS) {
+      print_vec(camera.Position);
     }
 
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)

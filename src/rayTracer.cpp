@@ -76,10 +76,11 @@ glm::vec3 RayTracer::sendRay(glm::vec3 origin, glm::vec3 dir, int k) {
 
                 glm::vec3 tempCross, tempNormal;
                 Color tempColor;
-                if (!kdtree.intersectShadowRay(cross + (0.0001f * light.position), (light.position - cross))) {
+                glm::vec3 lightdir = glm::normalize(light.position - cross);
+                if (!kdtree.intersectShadowRay(cross + (0.0001f * lightdir), lightdir)) {
 
                     /* Phong's model */
-                    glm::vec3 L = glm::normalize(light.position - cross);
+                    glm::vec3 L = lightdir;
                     glm::vec3 R = glm::normalize(2.f * (glm::dot(L, N)) * N - L);
 
                     float distance = glm::distance(cross, light.position);
@@ -91,9 +92,10 @@ glm::vec3 RayTracer::sendRay(glm::vec3 origin, glm::vec3 dir, int k) {
                 }
             }
 
-            glm::vec3 reflected = glm::normalize(2.f * glm::dot(V, N) * N - V);
             pixel += color.ambient * scene.ambientLight + color.diffuse * diffuse + color.specular * specular;
-            pixel += 0.25f * sendRay(cross + 0.0001f * reflected, reflected, k - 1);
+
+            glm::vec3 reflectedDir = glm::normalize(2.f * glm::dot(V, N) * N - V);
+            pixel += 0.5f * color.diffuse * sendRay(cross + 0.0001f * reflectedDir, reflectedDir, k - 1);
         }
     }
     return pixel;
@@ -203,9 +205,9 @@ void RayTracer::exportImage(const char *filename, const char *format) {
     RGBQUAD color;
     for (unsigned y = 0, i = 0; y < scene.yres; y++) {
         for (unsigned x = 0; x < scene.xres; x++) {
-            color.rgbRed   = data[i++];
+            color.rgbRed = data[i++];
             color.rgbGreen = data[i++];
-            color.rgbBlue  = data[i++];
+            color.rgbBlue = data[i++];
             FreeImage_SetPixelColor(bitmap, x, y, &color);
         }
     }

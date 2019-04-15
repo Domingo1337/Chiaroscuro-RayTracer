@@ -11,7 +11,7 @@ class Model;
 
 class OpenGLPreview {
   public:
-    OpenGLPreview(Scene *_scene, unsigned int _previewHeight, bool usingOpenGLPreview);
+    OpenGLPreview(Scene *_scene);
 
     void setModel(Model *model);
     void setRenderer(RayTracer *renderer);

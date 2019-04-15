@@ -2,20 +2,19 @@
 #include "openglPreview.hpp"
 #include "rayTracer.hpp"
 
+#include <iostream>
+
 /* TODO:
  *   Calculate normals if they are not given in obj file.
  */
 
-int main(int argc, char *argv[]) {
-    bool usingOpenGLPreview = true;
-    unsigned int previewHeight = 900;
-
-    Scene scene(argc > 1 ? argv[1] : "view_test.rtc");
-    OpenGLPreview preview(&scene, previewHeight, usingOpenGLPreview);
+int main(int argc, char **argv) {
+    Scene scene(argc, argv);
+    OpenGLPreview preview(&scene);
     Model model(scene.objFile);
     RayTracer renderer(model, scene);
 
-    if (usingOpenGLPreview) {
+    if (scene.usingOpenGLPreview) {
         preview.setModel(&model);
         preview.setRenderer(&renderer);
         preview.loop();

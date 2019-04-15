@@ -31,8 +31,9 @@ class Scene {
   public:
     Scene();
     Scene(std::string filename);
+    Scene(int argc, char** argv);
 
-    std::string comment;
+    // given in .rtc file
     std::string objFile;
     std::string pngFile;
     int k;
@@ -44,6 +45,10 @@ class Scene {
     float yview;
     glm::vec3 ambientLight;
     std::vector<Light> lights;
+
+    // command line args
+    bool usingOpenGLPreview = true;
+    unsigned int previewHeight = 900;
 };
 
 #endif
