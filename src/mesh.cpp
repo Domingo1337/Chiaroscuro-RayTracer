@@ -1,4 +1,4 @@
-/* Source: LearnOpenGL
+/* Based off LearnOpenGL's
  * https://learnopengl.com/code_viewer_gh.php?code=includes/learnopengl/mesh.h
  */
 
@@ -6,6 +6,7 @@
 #include "shader.hpp"
 
 #include <glad/glad.h>
+
 
 Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture> textures,
            Color materialColor) {
@@ -27,7 +28,7 @@ Color Mesh::getColorAt(glm::vec2 coords) {
     while (coords.y > 1.f) coords.y -= 1.f;
     while (coords.y < 0.f) coords.y += 1.f;
 
-    if (textureDiffuse) {
+    if (textureDiffuse && textureDiffuse->image) {
         int x = coords.x * textureDiffuse->width;
         int y = coords.y * textureDiffuse->height;
         unsigned char *pixel = &textureDiffuse->image[(y * textureDiffuse->width + x) * textureDiffuse->nrComponents];
@@ -35,7 +36,7 @@ Color Mesh::getColorAt(glm::vec2 coords) {
         color.diffuse.g = (float)(*(pixel + 1)) / 255.f;
         color.diffuse.b = (float)(*(pixel + 2)) / 255.f;
     }
-    if (textureSpecular) {
+    if (textureSpecular && textureSpecular->image) {
         int x = coords.x * textureSpecular->width;
         int y = coords.y * textureSpecular->height;
         unsigned char *pixel =

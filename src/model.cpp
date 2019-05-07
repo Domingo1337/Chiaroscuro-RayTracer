@@ -136,6 +136,7 @@ Texture TextureFromFile(const char *path, const std::string &directory) {
     } else {
         std::cout << "Texture failed to load at path: " << path << std::endl;
         stbi_image_free(texture.image);
+        texture.image = NULL;
     }
 
     return texture;

@@ -69,7 +69,7 @@ void OpenGLPreview::loop() {
 
             glm::mat4 _model, view, projection;
             view = camera.GetViewMatrix();
-            projection = glm::perspective(glm::radians(camera.Zoom), (float)scene->xres / scene->yres, 0.1f, 1000.f);
+            projection = glm::perspective(glm::radians(camera.Zoom), (float)scene->xres / scene->yres, 0.1f, 2000.f);
 
             shaderTextured.setMat4("model", _model);
             shaderTextured.setMat4("view", view);
@@ -172,7 +172,7 @@ void OpenGLPreview::processInputs(float deltaTime) {
     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
         camera.ProcessKeyboard(DOWNWARD, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-        camera.MovementSpeed = 12.5f;
+        camera.MovementSpeed = 30.f;
     else
         camera.MovementSpeed = 2.5f;
 }

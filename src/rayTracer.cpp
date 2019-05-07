@@ -27,8 +27,7 @@ void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
     dy = (1.f / scene.yres) * rotate * dy;
     dx = (1.f / scene.xres) * rotate * dx;
 
-    std::cerr << "Rendering image of size " << scene.xres << "x" << scene.yres << " with " << model.meshes.size()
-              << " meshes in the scene\n";
+    std::cerr << "Rendering image of size " << scene.xres << "x" << scene.yres << "\n";
     maxVal = 0.f;
 
     glm::vec3 current = leftUpper + 0.5f * (dy + dx);
@@ -84,7 +83,7 @@ glm::vec3 RayTracer::sendRay(glm::vec3 origin, glm::vec3 dir, int k) {
                     glm::vec3 R = glm::normalize(2.f * (glm::dot(L, N)) * N - L);
 
                     float distance = glm::distance(cross, light.position);
-                    float attentuation = (1.f / (1.f + distance * distance));
+                    float attentuation = 1.f; //(1.f / (1.f + distance * distance));
                     glm::vec3 lightColor = light.color * light.intensity * attentuation;
 
                     diffuse += glm::max(glm::dot(L, N), 0.f) * lightColor;
@@ -95,7 +94,8 @@ glm::vec3 RayTracer::sendRay(glm::vec3 origin, glm::vec3 dir, int k) {
             pixel += color.ambient * scene.ambientLight + color.diffuse * diffuse + color.specular * specular;
 
             glm::vec3 reflectedDir = glm::normalize(2.f * glm::dot(V, N) * N - V);
-            pixel += 0.5f * color.diffuse * sendRay(cross + 0.0001f * reflectedDir, reflectedDir, k - 1);
+            if (k > 1)
+                pixel += (float)M_1_PI * color.diffuse * sendRay(cross + 0.0001f * reflectedDir, reflectedDir, k - 1);
         }
     }
     return pixel;
@@ -122,17 +122,19 @@ bool RayTracer::intersectShadowRayModel(const glm::vec3 &origin, const glm::vec3
 bool RayTracer::intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &cross,
                                    glm::vec3 &normal, Color &color) {
     glm::vec3 baryPos;
-    Triangle *triangle = kdtree.intersectRay(origin, direction, baryPos);
-    if (triangle) {
-        normal = triangle->v1.Normal * (1.f - baryPos.x - baryPos.y) + triangle->v2.Normal * baryPos.x +
-                 triangle->v3.Normal * baryPos.y;
-        if (triangle->mesh)
-            color = triangle->mesh->getColorAt(triangle->v1.TexCoords * (1.f - baryPos.x - baryPos.y) +
-                                               triangle->v2.TexCoords * baryPos.x + triangle->v3.TexCoords * baryPos.y);
-        cross = origin + baryPos.z * direction;
-        return true;
-    }
-    return false;
+    Triangle triangle;
+    if (!kdtree.intersectRay(origin, direction, baryPos, triangle))
+        return false;
+    normal = kdtree.vertices[triangle.fst].Normal * (1.f - baryPos.x - baryPos.y) +
+             kdtree.vertices[triangle.snd].Normal * baryPos.x + kdtree.vertices[triangle.trd].Normal * baryPos.y;
+    if (kdtree.materials[triangle.fst])
+        color = kdtree.materials[triangle.fst]->getColorAt(
+            kdtree.vertices[triangle.fst].TexCoords * (1.f - baryPos.x - baryPos.y) +
+            kdtree.vertices[triangle.snd].TexCoords * baryPos.x + kdtree.vertices[triangle.trd].TexCoords * baryPos.y);
+    else
+        color = Color(glm::vec3(1.f, 1.f, 1.f), glm::vec3(1.f, 1.f, 1.f), glm::vec3(1.f, 1.f, 1.f), 1.f);
+    cross = origin + baryPos.z * direction;
+    return true;
 }
 
 bool RayTracer::intersectRayModel(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &cross,

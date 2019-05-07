@@ -7,49 +7,52 @@
 #include <vector>
 
 class Model;
+class Mesh;
+class Vertex;
 
 struct Triangle {
-    Triangle(const Vertex &v1, const Vertex &v2, const Vertex &v3, Mesh *mesh);
-    bool intersectRay(const glm::vec3 &origin, const glm::vec3 &dir, glm::vec3 &baryPosition);
-    Vertex v1;
-    Vertex v2;
-    Vertex v3;
-    glm::vec3 midpoint;
-    Mesh *mesh;
+    id_t fst;
+    id_t snd;
+    id_t trd;
 };
 
 class KDTree {
   public:
     KDTree(Model &model);
-    Triangle *intersectRay(const glm::vec3 &origin, const glm::vec3 &dir, glm::vec3 &baryPosition);
+    KDTree(std::vector<Mesh> &meshes);
+    bool intersectRay(const glm::vec3 &origin, const glm::vec3 &dir, glm::vec3 &baryPosition, Triangle &triangle);
     bool intersectShadowRay(const glm::vec3 &origin, const glm::vec3 &dir);
-
-  private:
+    std::vector<Vertex> vertices;
+    std::vector<Mesh *> materials;
+    glm::vec3 minCoords;
+    glm::vec3 maxCoords;
     struct KDNode {
-        KDNode();
-        KDNode(Triangle *triangles, size_t size, int axis);
         // leaf
-        Triangle *triangle;
+        std::vector<Triangle> triangles;
 
         // node
-        std::unique_ptr<KDNode> left;
-        std::unique_ptr<KDNode> right;
+        id_t child;
 
-        // shared
-        struct BoundingBox {
-            BoundingBox();
-            BoundingBox(const BoundingBox &b1, const BoundingBox &b2);
-            BoundingBox(const Triangle *triangle);
-            bool intersectRay(const glm::vec3 &origin, const glm::vec3 &dir);
-            glm::vec3 minCorner;
-            glm::vec3 maxCorner;
-        } bbox;
+        // left right split
+        id_t axis;
+        id_t count;
+        float split;
         bool isLeaf;
+    };
 
-        Triangle *intersectRay(const glm::vec3 &origin, const glm::vec3 &dir, glm::vec3 &baryPosition);
-        bool intersectShadowRay(const glm::vec3 &origin, const glm::vec3 &dir, glm::vec3 &baryPosition);
-    } root;
-    std::vector<Triangle> triangles;
+  private:
+    bool intersectRayTriangle(const glm::vec3 &origin, const glm::vec3 &dir, glm::vec3 &baryPosition,
+                              const Triangle &tri);
+
+    bool intersectRayNode(const glm::vec3 &origin, const glm::vec3 &dir, glm::vec3 &baryPosition, Triangle &triangle,
+                          float &distance, KDTree::KDNode &node, glm::vec3 &min, glm::vec3 &max);
+    KDNode build(std::vector<Triangle> &tris, glm::vec3 &max, glm::vec3 &min);
+    std::pair<id_t, float> findSplit(std::vector<Triangle> &tris, glm::vec3 &max, glm::vec3 &min);
+    float triMin(Triangle &t, id_t axis);
+    float triMax(Triangle &t, id_t axis);
+    bool inRight(Triangle &t, float min, id_t axis);
+    bool inLeft(Triangle &t, float max, id_t axis);
+    std::vector<KDNode> nodes;
 };
 
 #endif // KDTREE_H

@@ -1,4 +1,4 @@
-/* Source: LearnOpenGL
+/* Based off LearnOpenGL's
  * https://learnopengl.com/code_viewer_gh.php?code=includes/learnopengl/mesh.h
  */
 
