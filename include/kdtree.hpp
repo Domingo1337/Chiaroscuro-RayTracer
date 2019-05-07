@@ -33,10 +33,11 @@ class KDTree {
         // node
         id_t child;
 
-        // left right split
-        id_t axis;
-        id_t count;
-        float split;
+        struct Split {
+            id_t axis;
+            float position;
+        } split;
+
         bool isLeaf;
     };
 
@@ -45,9 +46,9 @@ class KDTree {
                               const Triangle &tri);
 
     bool intersectRayNode(const glm::vec3 &origin, const glm::vec3 &dir, glm::vec3 &baryPosition, Triangle &triangle,
-                          float &distance, KDTree::KDNode &node, glm::vec3 &min, glm::vec3 &max);
+                          KDTree::KDNode &node, float tmin, float tmax);
     KDNode build(std::vector<Triangle> &tris, glm::vec3 &max, glm::vec3 &min);
-    std::pair<id_t, float> findSplit(std::vector<Triangle> &tris, glm::vec3 &max, glm::vec3 &min);
+    KDNode::Split findSplit(std::vector<Triangle> &tris, glm::vec3 &max, glm::vec3 &min);
     float triMin(Triangle &t, id_t axis);
     float triMax(Triangle &t, id_t axis);
     bool inRight(Triangle &t, float min, id_t axis);

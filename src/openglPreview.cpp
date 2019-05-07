@@ -5,10 +5,10 @@
 
 #include <glad/glad.h>
 
+#include "utilities.hpp"
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
-#include"utilities.hpp"
 
 OpenGLPreview::OpenGLPreview(Scene *_scene)
     : scene(_scene), previewHeight(_scene->previewHeight),
@@ -141,11 +141,6 @@ void OpenGLPreview::processInputs(float deltaTime) {
         shouldRequestRender = true;
     }
 
-    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) {
-        screen.renderer->normalizeImage();
-        screen.updateScreen();
-    }
-
     if (glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS) {
         if (shouldSwitch)
             showRender = !showRender;
@@ -153,8 +148,9 @@ void OpenGLPreview::processInputs(float deltaTime) {
     } else {
         shouldSwitch = true;
     }
-     if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS) {
-      print_vec(camera.Position);
+    if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS) {
+        print_vec(camera.Position);
+        std::cerr << "\n";
     }
 
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -227,6 +223,7 @@ void OpenGLPreview::Screen::draw() {
 void OpenGLPreview::Screen::requestRender(Camera *camera) {
     renderer->rayTrace(camera->Position, camera->Front + camera->Position, camera->Up,
                        2 * tan(camera->Zoom * M_PI / 360.));
+    renderer->normalizeImage();
     updateScreen();
 }
 
