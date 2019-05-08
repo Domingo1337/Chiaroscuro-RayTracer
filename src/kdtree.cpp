@@ -1,10 +1,6 @@
 #include "kdtree.hpp"
 #include "model.hpp"
 
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtc/random.hpp>
-#include <glm/gtx/intersect.hpp>
-
 #include <glm/gtx/io.hpp>
 
 #include <algorithm>
@@ -185,12 +181,35 @@ bool KDTree::intersectRay(const glm::vec3 &origin, const glm::vec3 &dir, Triangl
         return false;
     return intersectRayNode(origin, dir, triangle, baryPosition, distance, nodes[0], intersect.first, intersect.second);
 }
+
+/* based off original Möller–Trumbore algorithm */
 bool KDTree::intersectRayTriangle(const glm::vec3 &origin, const glm::vec3 &dir, const Triangle &tri,
                                   glm::vec2 &baryPosition, float &distance) {
-    glm::vec3 baryPos;
-    return glm::intersectRayTriangle(origin, dir, vertices[tri.fst].Position, vertices[tri.snd].Position,
-                                     vertices[tri.trd].Position, baryPos) &&
-           (baryPosition.x = baryPos.x, baryPosition.y = baryPos.y, distance = baryPos.z);
+    const glm::vec3 v0 = vertices[tri.fst].Position;
+    const glm::vec3 e1 = vertices[tri.snd].Position - v0;
+    const glm::vec3 e2 = vertices[tri.trd].Position - v0;
+
+    const glm::vec3 p = glm::cross(dir, e2);
+
+    const float a = glm::dot(e1, p);
+
+    const float Epsilon = std::numeric_limits<float>::epsilon();
+    if (a < Epsilon && a > -Epsilon)
+        return false;
+
+    const float f = 1.f / a;
+
+    const glm::vec3 s = origin - v0;
+    baryPosition.x = f * glm::dot(s, p);
+    if (baryPosition.x < 0.f || baryPosition.x > 1.f)
+        return false;
+
+    const glm::vec3 q = glm::cross(s, e1);
+    baryPosition.y = f * glm::dot(dir, q);
+    if (baryPosition.y < 0.f || baryPosition.y + baryPosition.x > 1.f)
+        return false;
+
+    return (distance = f * glm::dot(e2, q)) >= 0.f;
 }
 bool KDTree::intersectRayNode(const glm::vec3 &origin, const glm::vec3 &dir, Triangle &triangle,
                               glm::vec2 &baryPosition, float &distance, KDTree::KDNode &node, float tmin, float tmax) {

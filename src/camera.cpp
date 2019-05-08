@@ -5,16 +5,16 @@
 
 #include <glad/glad.h>
 
+#include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-Camera::Camera(glm::vec3 position, glm::vec3 front,
-               glm::vec3 up, float yaw, float pitch)
+Camera::Camera(glm::vec3 position, glm::vec3 lookAt, glm::vec3 up)
     : MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM) {
-    Front = front;
+    glm::vec3 direction = glm::normalize(position - lookAt);
     Position = position;
     WorldUp = up;
-    Yaw = yaw;
-    Pitch = pitch;
+    Yaw = atan2(direction.x, direction.z);
+    Pitch = asin(direction.y) + 1.57079632679;
     updateCameraVectors();
 }
 
@@ -45,7 +45,7 @@ void Camera::ProcessKeyboard(Camera_Movement direction, float deltaTime) {
         Position += Up * velocity;
 }
 
-void Camera::ProcessMouseMovement(float xoffset, float yoffset, bool constrainPitch ) {
+void Camera::ProcessMouseMovement(float xoffset, float yoffset, bool constrainPitch) {
     xoffset *= MouseSensitivity;
     yoffset *= MouseSensitivity;
 

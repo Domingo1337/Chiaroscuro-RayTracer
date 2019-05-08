@@ -33,15 +33,8 @@ class RayTracer {
     /* Recursive procedure used by rayTrace method */
     glm::vec3 sendRay(glm::vec3 origin, glm::vec3 dir, int k);
 
-    /* Intersect ray specified by origin and direction with every triangle in the kd-tree, storing the hitpoint in params: cross, normal, color */
+    /* Intersect ray specified by origin and direction with kd-tree, storing the hitpoint in params: cross, normal, color */
     bool intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &cross, glm::vec3 &normal, Color &color);
-
-    /* Intersect ray specified by origin and direction with every triangle in the model, storing the hitpoint in params: cross, normal, color */
-    bool intersectRayModel(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &cross, glm::vec3 &normal, Color &color);
-
-    /* Intersect shadow ray specified by origin and direction with every triangle in the model */
-    bool intersectShadowRayModel(const glm::vec3 &origin, const glm::vec3 &direction);
-
 
     Model &model;
     Scene &scene;

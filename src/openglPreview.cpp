@@ -12,8 +12,8 @@
 
 OpenGLPreview::OpenGLPreview(Scene *_scene)
     : scene(_scene), previewHeight(_scene->previewHeight),
-      previewWidth(((double)_scene->xres / _scene->yres) * _scene->previewHeight),
-      camera(_scene->VP, glm::normalize(_scene->LA - _scene->VP)), showRender(false) {
+      previewWidth(((double)_scene->xres / _scene->yres) * _scene->previewHeight), camera(_scene->VP, _scene->LA, _scene->UP),
+      showRender(false) {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);

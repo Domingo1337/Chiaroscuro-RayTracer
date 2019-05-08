@@ -2,11 +2,7 @@
 #include "model.hpp"
 
 #include <FreeImage.h>
-
-#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/random.hpp>
-#include <glm/gtx/intersect.hpp>
 
 #include <chrono>
 #include <iostream>
@@ -109,24 +105,6 @@ glm::vec3 RayTracer::sendRay(glm::vec3 origin, glm::vec3 dir, int k) {
     return pixel;
 }
 
-bool RayTracer::intersectShadowRayModel(const glm::vec3 &origin, const glm::vec3 &direction) {
-    glm::vec3 baryPosition;
-    for (auto &mesh : model.meshes) {
-        auto &indices = mesh.indices;
-        auto &vertices = mesh.vertices;
-        /* triangles loop */
-        for (unsigned i = 0; i < indices.size(); i += 3) {
-            auto &A = vertices[indices[i]];
-            auto &B = vertices[indices[i + 1]];
-            auto &C = vertices[indices[i + 2]];
-
-            if (glm::intersectRayTriangle(origin, direction, A.Position, B.Position, C.Position, baryPosition))
-                return true;
-        }
-    }
-    return false;
-}
-
 bool RayTracer::intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &cross,
                                    glm::vec3 &normal, Color &color) {
     glm::vec2 baryPos;
@@ -144,41 +122,6 @@ bool RayTracer::intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &dir
         color = Color(glm::vec3(1.f, 1.f, 1.f), glm::vec3(1.f, 1.f, 1.f), glm::vec3(1.f, 1.f, 1.f), 1.f);
     cross = origin + distance * direction;
     return true;
-}
-
-bool RayTracer::intersectRayModel(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &cross,
-                                  glm::vec3 &normal, Color &color) {
-    float minDist = FLT_MAX;
-    Mesh *closestMesh = NULL;
-    glm::vec2 closestPos;
-
-    for (auto &mesh : model.meshes) {
-        auto &indices = mesh.indices;
-        auto &vertices = mesh.vertices;
-        /* triangles loop */
-        for (unsigned i = 0; i < indices.size(); i += 3) {
-            auto &A = vertices[indices[i]];
-            auto &B = vertices[indices[i + 1]];
-            auto &C = vertices[indices[i + 2]];
-
-            glm::vec3 baryPosition;
-            float &currentDist = baryPosition.z;
-            if (glm::intersectRayTriangle(origin, direction, A.Position, B.Position, C.Position, baryPosition) &&
-                currentDist < minDist) {
-                minDist = currentDist;
-                float baryPositionZ = 1.f - baryPosition.x - baryPosition.y;
-                closestMesh = &mesh;
-                closestPos = A.TexCoords * baryPositionZ + B.TexCoords * baryPosition.x + C.TexCoords * baryPosition.y;
-                normal = A.Normal * baryPositionZ + B.Normal * baryPosition.x + C.Normal * baryPosition.y;
-            }
-        }
-    }
-    if (closestMesh) {
-        cross = origin + minDist * direction;
-        color = closestMesh->getColorAt(closestPos);
-        return true;
-    }
-    return false;
 }
 
 uint8_t *RayTracer::getData() { return data.data(); }
