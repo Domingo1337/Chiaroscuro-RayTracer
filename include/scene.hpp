@@ -34,8 +34,8 @@ class Scene {
     Scene(int argc, char **argv);
 
     // given in .rtc file
-    std::string objFile;
-    std::string pngFile;
+    std::string objPath;
+    std::string renderPath;
     int k;
     unsigned xres;
     unsigned yres;

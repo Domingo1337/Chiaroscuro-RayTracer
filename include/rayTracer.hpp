@@ -26,8 +26,8 @@ class RayTracer {
     /* Divide every pixel's color by specified max */
     void normalizeImage(float max);
 
-    /* Export image to file using FreeImage library. Default format is png. 24 bits per pixel */
-    void exportImage(const char *filename, const char *format);
+    /* Export image to file using FreeImage library. 24 bits per pixel */
+    void exportImage(const char *filename);
 
   private:
     /* Recursive procedure used by rayTrace method */

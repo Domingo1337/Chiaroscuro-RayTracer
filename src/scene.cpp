@@ -25,7 +25,7 @@ Scene::Scene(std::string filename) {
     }
     input.unget();
 
-    input >> objFile >> pngFile >> k >> xres >> yres;
+    input >> objPath >> renderPath >> k >> xres >> yres;
     input >> VP.x >> VP.y >> VP.z;
     input >> LA.x >> LA.y >> LA.z;
     input >> UP.x >> UP.y >> UP.z;

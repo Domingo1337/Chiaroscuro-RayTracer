@@ -11,7 +11,7 @@
 int main(int argc, char **argv) {
     Scene scene(argc, argv);
     OpenGLPreview preview(&scene);
-    Model model(scene.objFile);
+    Model model(scene.objPath);
     RayTracer renderer(model, scene);
 
     if (scene.usingOpenGLPreview) {
@@ -23,6 +23,6 @@ int main(int argc, char **argv) {
         renderer.normalizeImage();
     }
 
-    renderer.exportImage("render.png", "png");
+    renderer.exportImage(scene.renderPath.c_str());
     return 0;
 }

@@ -200,12 +200,8 @@ void RayTracer::normalizeImage(float max) {
     }
 }
 
-void RayTracer::exportImage(const char *filename, const char *format) {
+void RayTracer::exportImage(const char *filename) {
     FreeImage_Initialise();
-
-    FREE_IMAGE_FORMAT fileformat = FIF_PNG;
-    if (!strcasecmp(format, "jpg") || !strcasecmp(format, "jpeg"))
-        fileformat = FIF_JPEG;
 
     FIBITMAP *bitmap = FreeImage_Allocate(scene.xres, scene.yres, 24);
     if (!bitmap) {
@@ -222,7 +218,7 @@ void RayTracer::exportImage(const char *filename, const char *format) {
             FreeImage_SetPixelColor(bitmap, x, y, &color);
         }
     }
-    if (FreeImage_Save(fileformat, bitmap, filename, 0))
+    if (FreeImage_Save(FreeImage_GetFIFFromFilename(filename), bitmap, filename, 0))
         std::cerr << "Render succesfully saved to file " << filename << "\n";
     else
         std::cerr << "FreeImage export failed.\n";
