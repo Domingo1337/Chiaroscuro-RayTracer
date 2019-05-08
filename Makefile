@@ -2,7 +2,7 @@
 # (c) anl 2015-2017 
 #
 CXX=g++
-CFLAGS= -I/usr/local/include/GLFW/ -I./include/ -I./  -std=c++14  -Wall -Wextra -O2
+CFLAGS= -I/usr/local/include/GLFW/ -I./include/ -I./  -std=c++14  -Wall -Wextra -O3
 LIBS=-lglfw3 -lGL  -ldl -lX11 -lXxf86vm -lXrandr -lXi -lXinerama -lXcursor -lpthread -lassimp -lfreeimage
 
 default: main

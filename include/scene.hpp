@@ -31,7 +31,7 @@ class Scene {
   public:
     Scene();
     Scene(std::string filename);
-    Scene(int argc, char** argv);
+    Scene(int argc, char **argv);
 
     // given in .rtc file
     std::string objFile;
@@ -46,9 +46,10 @@ class Scene {
     glm::vec3 ambientLight;
     std::vector<Light> lights;
 
-    // command line args
+    // command line args and their default values
     bool usingOpenGLPreview = true;
     unsigned int previewHeight = 900;
+    size_t kdtreeLeafSize = 8;
 };
 
 #endif

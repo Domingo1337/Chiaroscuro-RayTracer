@@ -2,17 +2,23 @@
 #include "model.hpp"
 
 #include <FreeImage.h>
+
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
 #include <glm/gtx/intersect.hpp>
 
+#include <chrono>
 #include <iostream>
 
 RayTracer::RayTracer(Model &_model, Scene &_scene)
     : model(_model), scene(_scene), pixels(scene.yres, std::vector<glm::vec3>(scene.xres)),
-      data(scene.yres * scene.xres * 3), kdtree(_model) {}
+      data(scene.yres * scene.xres * 3), kdtree(_model, scene.kdtreeLeafSize) {}
 
 void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1.f, 0.f}, float yview = 1.f) {
+    std::cerr << "Rendering image of size " << scene.xres << "x" << scene.yres << "...\t";
+    auto beginTime = std::chrono::high_resolution_clock::now();
+
     float z = 1.f;
     float y = z * 0.5f * yview;
     float x = y * ((float)scene.xres / (float)scene.yres);
@@ -27,7 +33,6 @@ void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
     dy = (1.f / scene.yres) * rotate * dy;
     dx = (1.f / scene.xres) * rotate * dx;
 
-    std::cerr << "Rendering image of size " << scene.xres << "x" << scene.yres << "\n";
     maxVal = 0.f;
 
     glm::vec3 current = leftUpper + 0.5f * (dy + dx);
@@ -49,7 +54,10 @@ void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
             data[i++] = (uint8_t)(255.f * pixel.b);
         }
     }
-    // std::cerr << "Done!\nMaxVal is" << maxVal << "\n";
+
+    auto finishedTime = std::chrono::high_resolution_clock::now();
+    std::cerr << "took " << std::chrono::duration_cast<std::chrono::milliseconds>(finishedTime - beginTime).count()
+              << " miliseconds.\n";
 }
 
 glm::vec3 RayTracer::sendRay(glm::vec3 origin, glm::vec3 dir, int k) {
@@ -121,9 +129,10 @@ bool RayTracer::intersectShadowRayModel(const glm::vec3 &origin, const glm::vec3
 
 bool RayTracer::intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &cross,
                                    glm::vec3 &normal, Color &color) {
-    glm::vec3 baryPos;
+    glm::vec2 baryPos;
+    float distance;
     Triangle triangle;
-    if (!kdtree.intersectRay(origin, direction, baryPos, triangle))
+    if (!kdtree.intersectRay(origin, direction, triangle, baryPos, distance))
         return false;
     normal = kdtree.vertices[triangle.fst].Normal * (1.f - baryPos.x - baryPos.y) +
              kdtree.vertices[triangle.snd].Normal * baryPos.x + kdtree.vertices[triangle.trd].Normal * baryPos.y;
@@ -133,7 +142,7 @@ bool RayTracer::intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &dir
             kdtree.vertices[triangle.snd].TexCoords * baryPos.x + kdtree.vertices[triangle.trd].TexCoords * baryPos.y);
     else
         color = Color(glm::vec3(1.f, 1.f, 1.f), glm::vec3(1.f, 1.f, 1.f), glm::vec3(1.f, 1.f, 1.f), 1.f);
-    cross = origin + baryPos.z * direction;
+    cross = origin + distance * direction;
     return true;
 }
 
@@ -153,14 +162,14 @@ bool RayTracer::intersectRayModel(const glm::vec3 &origin, const glm::vec3 &dire
             auto &C = vertices[indices[i + 2]];
 
             glm::vec3 baryPosition;
+            float &currentDist = baryPosition.z;
             if (glm::intersectRayTriangle(origin, direction, A.Position, B.Position, C.Position, baryPosition) &&
-                baryPosition.z < minDist) {
-
-                minDist = baryPosition.z;
-                baryPosition.z = 1.f - baryPosition.x - baryPosition.y;
+                currentDist < minDist) {
+                minDist = currentDist;
+                float baryPositionZ = 1.f - baryPosition.x - baryPosition.y;
                 closestMesh = &mesh;
-                closestPos = A.TexCoords * baryPosition.z + B.TexCoords * baryPosition.x + C.TexCoords * baryPosition.y;
-                normal = A.Normal * baryPosition.z + B.Normal * baryPosition.x + C.Normal * baryPosition.y;
+                closestPos = A.TexCoords * baryPositionZ + B.TexCoords * baryPosition.x + C.TexCoords * baryPosition.y;
+                normal = A.Normal * baryPositionZ + B.Normal * baryPosition.x + C.Normal * baryPosition.y;
             }
         }
     }

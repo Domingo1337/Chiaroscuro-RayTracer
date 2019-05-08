@@ -1,6 +1,7 @@
 #include "kdtree.hpp"
 #include "model.hpp"
 
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/random.hpp>
 #include <glm/gtx/intersect.hpp>
 
@@ -32,9 +33,10 @@ bool KDTree::inRight(Triangle &t, float min, id_t axis) {
 bool lessThan(glm::vec3 &compare, glm::vec3 &to) { return compare.x < to.x || compare.y < to.y || compare.z < to.z; }
 bool greaterThan(glm::vec3 &compare, glm::vec3 &to) { return compare.x > to.x || compare.y > to.y || compare.z > to.z; }
 
-KDTree::KDTree(Model &model) : KDTree(model.meshes) {}
+KDTree::KDTree(Model &model, size_t leafSize_) : KDTree(model.meshes, leafSize_) {}
 
-KDTree::KDTree(std::vector<Mesh> &meshes) : minCoords(FLT_MAX, FLT_MAX, FLT_MAX), maxCoords(FLT_MIN, FLT_MIN, FLT_MIN) {
+KDTree::KDTree(std::vector<Mesh> &meshes, size_t leafSize_)
+    : leafSize(leafSize_), minCoords(FLT_MAX, FLT_MAX, FLT_MAX), maxCoords(FLT_MIN, FLT_MIN, FLT_MIN) {
     size_t verticesCount = 0;
     size_t indicesCount = 0;
 
@@ -112,7 +114,7 @@ KDTree::KDNode::Split KDTree::findSplit(std::vector<Triangle> &tris, glm::vec3 &
 
 KDTree::KDNode KDTree::build(std::vector<Triangle> &tris, glm::vec3 &max, glm::vec3 &min) {
     KDTree::KDNode node;
-    if (tris.size() <= 2 || (node.split = findSplit(tris, max, min)).axis == 3) {
+    if (tris.size() <= leafSize || (node.split = findSplit(tris, max, min)).axis == 3) {
         node.isLeaf = true;
         node.triangles = tris;
         return node;
@@ -176,31 +178,35 @@ std::pair<float, float> intersectRayBox(const glm::vec3 &origin, const glm::vec3
     return {std::max(std::max(std::min(txmin, txmax), std::min(tymin, tymax)), std::min(tzmin, tzmax)),
             std::min(std::min(std::max(txmin, txmax), std::max(tymin, tymax)), std::max(tzmin, tzmax))};
 }
-bool KDTree::intersectRay(const glm::vec3 &origin, const glm::vec3 &dir, glm::vec3 &baryPosition, Triangle &triangle) {
-    auto distance = intersectRayBox(origin, dir, maxCoords, minCoords);
-    if (distance.second < 0 || distance.second < distance.first)
+bool KDTree::intersectRay(const glm::vec3 &origin, const glm::vec3 &dir, Triangle &triangle, glm::vec2 &baryPosition,
+                          float &distance) {
+    auto intersect = intersectRayBox(origin, dir, maxCoords, minCoords);
+    if (intersect.second < 0 || intersect.second < intersect.first)
         return false;
-    return intersectRayNode(origin, dir, baryPosition, triangle, nodes[0], distance.first, distance.second);
+    return intersectRayNode(origin, dir, triangle, baryPosition, distance, nodes[0], intersect.first, intersect.second);
 }
-bool KDTree::intersectRayTriangle(const glm::vec3 &origin, const glm::vec3 &dir, glm::vec3 &baryPosition,
-                                  const Triangle &tri) {
+bool KDTree::intersectRayTriangle(const glm::vec3 &origin, const glm::vec3 &dir, const Triangle &tri,
+                                  glm::vec2 &baryPosition, float &distance) {
+    glm::vec3 baryPos;
     return glm::intersectRayTriangle(origin, dir, vertices[tri.fst].Position, vertices[tri.snd].Position,
-                                     vertices[tri.trd].Position, baryPosition);
+                                     vertices[tri.trd].Position, baryPos) &&
+           (baryPosition.x = baryPos.x, baryPosition.y = baryPos.y, distance = baryPos.z);
 }
-bool KDTree::intersectRayNode(const glm::vec3 &origin, const glm::vec3 &dir, glm::vec3 &baryPosition,
-                              Triangle &triangle, KDTree::KDNode &node, float tmin, float tmax) {
+bool KDTree::intersectRayNode(const glm::vec3 &origin, const glm::vec3 &dir, Triangle &triangle,
+                              glm::vec2 &baryPosition, float &distance, KDTree::KDNode &node, float tmin, float tmax) {
     if (node.isLeaf) {
-        glm::vec3 bPos;
+        glm::vec2 bPos;
         bool ret = false;
-        int i = 0;
+        float dist;
         for (auto &tri : node.triangles) {
-            if (intersectRayTriangle(origin, dir, bPos, tri) && bPos.z < tmax) {
+            if (intersectRayTriangle(origin, dir, tri, bPos, dist) && dist < tmax) {
                 baryPosition = bPos;
-                tmax = bPos.z;
+                tmax = dist;
                 triangle = tri;
                 ret = true;
             }
         }
+        distance = tmax;
         return ret;
     }
 
@@ -212,16 +218,18 @@ bool KDTree::intersectRayNode(const glm::vec3 &origin, const glm::vec3 &dir, glm
     KDTree::KDNode &second = belowFirst ? nodes[node.child + 1] : nodes[node.child];
 
     if (tsplit >= tmax || tsplit < 0)
-        return intersectRayNode(origin, dir, baryPosition, triangle, first, tmin, tmax);
+        return intersectRayNode(origin, dir, triangle, baryPosition, distance, first, tmin, tmax);
     else if (tsplit <= tmin)
-        return intersectRayNode(origin, dir, baryPosition, triangle, second, tmin, tmax);
+        return intersectRayNode(origin, dir, triangle, baryPosition, distance, second, tmin, tmax);
     else
-        return intersectRayNode(origin, dir, baryPosition, triangle, first, tmin, tsplit) ||
-               intersectRayNode(origin, dir, baryPosition, triangle, second, tsplit, tmax);
+        return intersectRayNode(origin, dir, triangle, baryPosition, distance, first, tmin, tsplit) ||
+               intersectRayNode(origin, dir, triangle, baryPosition, distance, second, tsplit, tmax);
 }
+
 // dummy function
 bool KDTree::intersectShadowRay(const glm::vec3 &origin, const glm::vec3 &dir) {
-    glm::vec3 baryPos;
+    glm::vec2 baryPos;
+    float distance;
     Triangle triangle;
-    return intersectRay(origin, dir, baryPos, triangle);
+    return intersectRay(origin, dir, triangle, baryPos, distance);
 }
