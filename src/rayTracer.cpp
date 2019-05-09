@@ -3,41 +3,36 @@
 
 #include <FreeImage.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <omp.h>
 
 #include <chrono>
 #include <iostream>
 
 RayTracer::RayTracer(Model &_model, Scene &_scene)
-    : model(_model), scene(_scene), pixels(scene.yres, std::vector<glm::vec3>(scene.xres)),
-      data(scene.yres * scene.xres * 3), kdtree(_model, scene.kdtreeLeafSize) {}
+    : model(_model), scene(_scene), pixels(_scene.yres, std::vector<glm::vec3>(_scene.xres)),
+      data(scene.yres * scene.xres * 3), kdtree(_model, _scene.kdtreeLeafSize) {}
 
 void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1.f, 0.f}, float yview = 1.f) {
-    std::cerr << "Rendering image of size " << scene.xres << "x" << scene.yres << "...\t";
+    std::cerr << "Rendering image of size " << scene.xres << "x" << scene.yres << " using " << omp_get_max_threads()
+              << " threads...\t";
     auto beginTime = std::chrono::high_resolution_clock::now();
 
     float z = 1.f;
     float y = z * 0.5f * yview;
     float x = y * ((float)scene.xres / (float)scene.yres);
 
-    glm::vec3 leftUpper = {-x, y, -z};
-    glm::vec3 dy = {0.f, -2.f * y, 0.f};
-    glm::vec3 dx = {2.f * x, 0.f, 0.f};
-
     /* rotate the corners of screen to look from VP to LA */
     auto rotate = glm::inverse(glm::mat3(glm::lookAt(eye, center, up)));
-    leftUpper = rotate * leftUpper;
-    dy = (1.f / scene.yres) * rotate * dy;
-    dx = (1.f / scene.xres) * rotate * dx;
+    const glm::vec3 dy = (1.f / scene.yres) * rotate * glm::vec3(0.f, -2.f * y, 0.f);
+    const glm::vec3 dx = (1.f / scene.xres) * rotate * glm::vec3(2.f * x, 0.f, 0.f);
+    const glm::vec3 leftUpper = rotate * glm::vec3(-x, y, -z) + 0.5f * (dx + dy);
 
     maxVal = 0.f;
 
-    glm::vec3 current = leftUpper + 0.5f * (dy + dx);
-    for (unsigned y = 0; y < scene.yres; y++, current += dy) {
-        // std::cerr << y << "/" << scene.yres << "... ";
-
-        glm::vec3 currentRay = current;
-        for (unsigned x = 0; x < scene.xres; x++, currentRay += dx) {
-            pixels[y][x] = sendRay(eye, currentRay, scene.k);
+#pragma omp parallel for
+    for (unsigned y = 0; y < scene.yres; y++) {
+        for (unsigned x = 0; x < scene.xres; x++) {
+            pixels[y][x] = sendRay(eye, leftUpper + float(x) * dx + float(y) * dy, scene.k);
 
             maxVal = maxVal > pixels[y][x].r ? maxVal : pixels[y][x].r;
             maxVal = maxVal > pixels[y][x].g ? maxVal : pixels[y][x].g;
@@ -52,11 +47,12 @@ void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
     }
 
     auto finishedTime = std::chrono::high_resolution_clock::now();
-    std::cerr << "took " << std::chrono::duration_cast<std::chrono::milliseconds>(finishedTime - beginTime).count()
-              << " miliseconds.\n";
+    std::cerr << "has taken "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(finishedTime - beginTime).count() * 0.001f
+              << " seconds.\n";
 }
 
-glm::vec3 RayTracer::sendRay(glm::vec3 origin, glm::vec3 dir, int k) {
+glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const int k) {
     glm::vec3 pixel = {0.f, 0.f, 0.f};
     glm::vec3 cross;
     glm::vec3 normal;
