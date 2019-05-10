@@ -22,11 +22,14 @@ bool KDTree::inLeft(Triangle &t, float max, id_t axis) {
     return vertices[t.fst].Position[axis] <= max || vertices[t.snd].Position[axis] <= max ||
            vertices[t.trd].Position[axis] <= max;
 }
+
 bool KDTree::inRight(Triangle &t, float min, id_t axis) {
     return vertices[t.fst].Position[axis] >= min || vertices[t.snd].Position[axis] >= min ||
            vertices[t.trd].Position[axis] >= min;
 }
+
 bool lessThan(glm::vec3 &compare, glm::vec3 &to) { return compare.x < to.x || compare.y < to.y || compare.z < to.z; }
+
 bool greaterThan(glm::vec3 &compare, glm::vec3 &to) { return compare.x > to.x || compare.y > to.y || compare.z > to.z; }
 
 KDTree::KDTree(Model &model, size_t leafSize_) : KDTree(model.meshes, leafSize_) {}
@@ -174,6 +177,7 @@ std::pair<float, float> intersectRayBox(const glm::vec3 &origin, const glm::vec3
     return {std::max(std::max(std::min(txmin, txmax), std::min(tymin, tymax)), std::min(tzmin, tzmax)),
             std::min(std::min(std::max(txmin, txmax), std::max(tymin, tymax)), std::max(tzmin, tzmax))};
 }
+
 bool KDTree::intersectRay(const glm::vec3 &origin, const glm::vec3 &dir, Triangle &triangle, glm::vec2 &baryPosition,
                           float &distance) {
     auto intersect = intersectRayBox(origin, dir, maxCoords, minCoords);
@@ -211,6 +215,7 @@ bool KDTree::intersectRayTriangle(const glm::vec3 &origin, const glm::vec3 &dir,
 
     return (distance = f * glm::dot(e2, q)) >= 0.f;
 }
+
 bool KDTree::intersectRayNode(const glm::vec3 &origin, const glm::vec3 &dir, Triangle &triangle,
                               glm::vec2 &baryPosition, float &distance, KDTree::KDNode &node, float tmin, float tmax) {
     if (node.isLeaf) {
@@ -245,10 +250,65 @@ bool KDTree::intersectRayNode(const glm::vec3 &origin, const glm::vec3 &dir, Tri
                intersectRayNode(origin, dir, triangle, baryPosition, distance, second, tsplit, tmax);
 }
 
-// dummy function
 bool KDTree::intersectShadowRay(const glm::vec3 &origin, const glm::vec3 &dir) {
-    glm::vec2 baryPos;
-    float distance;
-    Triangle triangle;
-    return intersectRay(origin, dir, triangle, baryPos, distance);
+    auto intersect = intersectRayBox(origin, dir, maxCoords, minCoords);
+    if (intersect.second < 0 || intersect.second < intersect.first)
+        return false;
+    return intersectShadowRayNode(origin, dir, nodes[0], intersect.first, intersect.second);
+}
+
+// pretty much the same as intersectRayTriangle
+bool KDTree::intersectShadowRayTriangle(const glm::vec3 &origin, const glm::vec3 &dir, const Triangle &tri) {
+    const glm::vec3 v0 = vertices[tri.fst].Position;
+    const glm::vec3 e1 = vertices[tri.snd].Position - v0;
+    const glm::vec3 e2 = vertices[tri.trd].Position - v0;
+
+    const glm::vec3 p = glm::cross(dir, e2);
+
+    const float a = glm::dot(e1, p);
+
+    const float Epsilon = std::numeric_limits<float>::epsilon();
+    if (a < Epsilon && a > -Epsilon)
+        return false;
+
+    const float f = 1.f / a;
+
+    const glm::vec3 s = origin - v0;
+    const float baryPositionx = f * glm::dot(s, p);
+    if (baryPositionx < 0.f || baryPositionx > 1.f)
+        return false;
+
+    const glm::vec3 q = glm::cross(s, e1);
+    const float baryPositiony = f * glm::dot(dir, q);
+    if (baryPositiony < 0.f || baryPositiony + baryPositionx > 1.f)
+        return false;
+
+    return (f * glm::dot(e2, q)) >= 0.f;
+}
+
+bool KDTree::intersectShadowRayNode(const glm::vec3 &origin, const glm::vec3 &dir, KDTree::KDNode &node, float tmin,
+                                    float tmax) {
+    if (node.isLeaf) {
+        for (auto &tri : node.triangles) {
+            if (intersectShadowRayTriangle(origin, dir, tri)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    float tsplit = (node.split.position - origin[node.split.axis]) / dir[node.split.axis];
+    bool belowFirst = (origin[node.split.axis] < node.split.position) ||
+                      (origin[node.split.axis] == node.split.position && dir[node.split.axis] <= 0);
+
+    KDTree::KDNode &first = belowFirst ? nodes[node.child] : nodes[node.child + 1];
+    KDTree::KDNode &second = belowFirst ? nodes[node.child + 1] : nodes[node.child];
+
+    if (tsplit >= tmax || tsplit < 0)
+        return intersectShadowRayNode(origin, dir, first, tmin, tmax);
+    else if (tsplit <= tmin)
+        return intersectShadowRayNode(origin, dir, second, tmin, tmax);
+    else
+        return intersectShadowRayNode(origin, dir, first, tmin, tsplit) ||
+               intersectShadowRayNode(origin, dir, second, tsplit, tmax);
 }

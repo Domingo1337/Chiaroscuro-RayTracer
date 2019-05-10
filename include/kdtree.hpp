@@ -20,7 +20,7 @@ class KDTree {
   public:
     const size_t leafSize;
     KDTree(Model &model, size_t leafSize_);
-    KDTree(std::vector<Mesh> &meshes, size_t leafSize_ );
+    KDTree(std::vector<Mesh> &meshes, size_t leafSize_);
     bool intersectRay(const glm::vec3 &origin, const glm::vec3 &dir, Triangle &triangle, glm::vec2 &baryPosition,
                       float &distance);
     bool intersectShadowRay(const glm::vec3 &origin, const glm::vec3 &dir);
@@ -48,6 +48,9 @@ class KDTree {
                               glm::vec2 &baryPosition, float &distance);
     bool intersectRayNode(const glm::vec3 &origin, const glm::vec3 &dir, Triangle &triangle, glm::vec2 &baryPosition,
                           float &distance, KDTree::KDNode &node, float tmin, float tmax);
+    bool intersectShadowRayTriangle(const glm::vec3 &origin, const glm::vec3 &dir, const Triangle &tri);
+    bool intersectShadowRayNode(const glm::vec3 &origin, const glm::vec3 &dir, KDTree::KDNode &node, float tmin,
+                                float tmax);
     KDNode build(std::vector<Triangle> &tris, glm::vec3 &max, glm::vec3 &min);
     KDNode::Split findSplit(std::vector<Triangle> &tris, glm::vec3 &max, glm::vec3 &min);
     float triMin(Triangle &t, id_t axis);
