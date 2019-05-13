@@ -14,11 +14,12 @@
 #include <string>
 #include <vector>
 
+class Scene;
 class Shader;
 
 class Model {
   public:
-    Model(std::string path);
+    Model(Scene &scene);
     void Draw(Shader shaderTexture, Shader shaderMaterial);
     std::vector<Mesh> meshes;
 

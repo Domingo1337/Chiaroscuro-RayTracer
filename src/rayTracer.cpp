@@ -3,6 +3,7 @@
 
 #include <FreeImage.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/random.hpp>
 #include <omp.h>
 
 #include <chrono>
@@ -47,9 +48,7 @@ void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
     }
 
     auto finishedTime = std::chrono::high_resolution_clock::now();
-    std::cerr << "has taken "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(finishedTime - beginTime).count() * 0.001f
-              << " seconds.\n";
+    std::cerr << "took " << (finishedTime - beginTime).count() * 0.000000001f << " seconds.\n";
 }
 
 glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const int k) {
@@ -59,7 +58,7 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
     Color color;
     if (intersectRayKDTree(origin, dir, cross, normal, color)) {
         if (k == 0) {
-            pixel = color.diffuse;
+            return color.diffuse;
         } else {
             glm::vec3 V = glm::normalize(origin - cross); // vector from cross to origin
             glm::vec3 N = glm::normalize(normal);         // normal in point of cross
@@ -67,23 +66,17 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
             glm::vec3 diffuse = {0.f, 0.f, 0.f};
             glm::vec3 specular = {0.f, 0.f, 0.f};
             for (auto &light : scene.lights) {
-                /* render lights */
-                // if (glm::areCollinear(dir, light.position - origin, 0.005f)) {
-                //     pixel = light.color * light.intensity;
-                //     break;
-                // }
-
                 glm::vec3 tempCross, tempNormal;
                 Color tempColor;
                 glm::vec3 lightdir = glm::normalize(light.position - cross);
-                if (!kdtree.intersectShadowRay(cross + (0.0001f * lightdir), lightdir)) {
+                float distance = glm::distance(cross, light.position);
+                if (!kdtree.intersectShadowRay(cross + (0.0001f * lightdir), lightdir, distance)) {
 
                     /* Phong's model */
                     glm::vec3 L = lightdir;
                     glm::vec3 R = glm::normalize(2.f * (glm::dot(L, N)) * N - L);
 
-                    float distance = glm::distance(cross, light.position);
-                    float attentuation = 1.f; //(1.f / (1.f + distance * distance));
+                    float attentuation = (1.f / (1.f + distance * distance));
                     glm::vec3 lightColor = light.color * light.intensity * attentuation;
 
                     diffuse += glm::max(glm::dot(L, N), 0.f) * lightColor;
@@ -92,10 +85,10 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
             }
 
             pixel += color.ambient * scene.ambientLight + color.diffuse * diffuse + color.specular * specular;
-
-            glm::vec3 reflectedDir = glm::normalize(2.f * glm::dot(V, N) * N - V);
-            if (k > 1)
-                pixel += (float)M_1_PI * color.diffuse * sendRay(cross + 0.0001f * reflectedDir, reflectedDir, k - 1);
+            if (k > 1) {
+                glm::vec3 reflectedDir = glm::normalize(2.f * glm::dot(V, N) * N - V);
+                pixel += (float)M_1_PI * sendRay(cross + 0.0001f * reflectedDir, reflectedDir, k - 1);
+            }
         }
     }
     return pixel;
@@ -108,15 +101,16 @@ bool RayTracer::intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &dir
     Triangle triangle;
     if (!kdtree.intersectRay(origin, direction, triangle, baryPos, distance))
         return false;
-    normal = kdtree.vertices[triangle.fst].Normal * (1.f - baryPos.x - baryPos.y) +
-             kdtree.vertices[triangle.snd].Normal * baryPos.x + kdtree.vertices[triangle.trd].Normal * baryPos.y;
-    if (kdtree.materials[triangle.fst])
-        color = kdtree.materials[triangle.fst]->getColorAt(
-            kdtree.vertices[triangle.fst].TexCoords * (1.f - baryPos.x - baryPos.y) +
-            kdtree.vertices[triangle.snd].TexCoords * baryPos.x + kdtree.vertices[triangle.trd].TexCoords * baryPos.y);
-    else
-        color = Color(glm::vec3(1.f, 1.f, 1.f), glm::vec3(1.f, 1.f, 1.f), glm::vec3(1.f, 1.f, 1.f), 1.f);
-    cross = origin + distance * direction;
+
+    Vertex &fst = kdtree.vertices[triangle.fst];
+    Vertex &snd = kdtree.vertices[triangle.snd];
+    Vertex &trd = kdtree.vertices[triangle.trd];
+    float baryPosz = (1.f - baryPos.x - baryPos.y);
+
+    normal = fst.Normal * baryPosz + snd.Normal * baryPos.x + trd.Normal * baryPos.y;
+    cross = fst.Position * baryPosz + snd.Position * baryPos.x + trd.Position * baryPos.y;
+    color = kdtree.materials[triangle.fst]->getColorAt(fst.TexCoords * baryPosz + snd.TexCoords * baryPos.x +
+                                                       trd.TexCoords * baryPos.y);
     return true;
 }
 

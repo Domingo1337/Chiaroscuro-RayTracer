@@ -23,7 +23,7 @@ class KDTree {
     KDTree(std::vector<Mesh> &meshes, size_t leafSize_);
     bool intersectRay(const glm::vec3 &origin, const glm::vec3 &dir, Triangle &triangle, glm::vec2 &baryPosition,
                       float &distance);
-    bool intersectShadowRay(const glm::vec3 &origin, const glm::vec3 &dir);
+    bool intersectShadowRay(const glm::vec3 &origin, const glm::vec3 &dir, float distance);
     std::vector<Vertex> vertices;
     std::vector<Mesh *> materials;
     glm::vec3 minCoords;
@@ -48,7 +48,7 @@ class KDTree {
                               glm::vec2 &baryPosition, float &distance);
     bool intersectRayNode(const glm::vec3 &origin, const glm::vec3 &dir, Triangle &triangle, glm::vec2 &baryPosition,
                           float &distance, KDTree::KDNode &node, float tmin, float tmax);
-    bool intersectShadowRayTriangle(const glm::vec3 &origin, const glm::vec3 &dir, const Triangle &tri);
+    bool intersectShadowRayTriangle(const glm::vec3 &origin, const glm::vec3 &dir, const Triangle &tri, float dist);
     bool intersectShadowRayNode(const glm::vec3 &origin, const glm::vec3 &dir, KDTree::KDNode &node, float tmin,
                                 float tmax);
     KDNode build(std::vector<Triangle> &tris, glm::vec3 &max, glm::vec3 &min);

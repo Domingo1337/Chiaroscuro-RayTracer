@@ -8,22 +8,8 @@
 
 struct Light {
     Light(glm::vec3 _color, glm::vec3 _position, float _intensity);
-    union {
-        glm::vec3 color;
-        struct {
-            float r;
-            float g;
-            float b;
-        };
-    };
-    union {
-        glm::vec3 position;
-        struct {
-            float x;
-            float y;
-            float z;
-        };
-    };
+    glm::vec3 color;
+    glm::vec3 position;
     float intensity;
 };
 

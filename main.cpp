@@ -11,7 +11,7 @@
 int main(int argc, char **argv) {
     Scene scene(argc, argv);
     OpenGLPreview preview(&scene);
-    Model model(scene.objPath);
+    Model model(scene);
     RayTracer renderer(model, scene);
 
     if (scene.usingOpenGLPreview) {

@@ -12,11 +12,14 @@
 #include <iostream>
 #include <stb_image.h>
 
-Model::Model(std::string path) { loadModel(path); }
+#include "scene.hpp"
+
+Model::Model(Scene &scene) {
+    loadModel(scene.objPath);
+}
 
 void Model::Draw(Shader shaderTexture, Shader shaderMaterial) {
-    for (unsigned int i = 0; i < meshes.size(); i++)
-        meshes[i].Draw(shaderTexture, shaderMaterial);
+    for (auto &mesh : meshes)  mesh.Draw(shaderTexture, shaderMaterial);
 }
 
 void Model::loadModel(std::string path) {
@@ -51,22 +54,20 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene) {
 
     for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
         Vertex vertex;
+
         // process vertex positions, normals and texture coords
-        glm::vec3 vector;
-        vector.x = mesh->mVertices[i].x;
-        vector.y = mesh->mVertices[i].y;
-        vector.z = mesh->mVertices[i].z;
-        vertex.Position = vector;
-        vector.x = mesh->mNormals[i].x;
-        vector.y = mesh->mNormals[i].y;
-        vector.z = mesh->mNormals[i].z;
-        vertex.Normal = vector;
-        if (mesh->mTextureCoords[0]) { // DRAWBACK: Only cares about the first
-                                       // texture
-            glm::vec2 vec;
-            vec.x = mesh->mTextureCoords[0][i].x;
-            vec.y = mesh->mTextureCoords[0][i].y;
-            vertex.TexCoords = vec;
+        vertex.Position.x = mesh->mVertices[i].x;
+        vertex.Position.y = mesh->mVertices[i].y;
+        vertex.Position.z = mesh->mVertices[i].z;
+
+        vertex.Normal.x = mesh->mNormals[i].x;
+        vertex.Normal.y = mesh->mNormals[i].y;
+        vertex.Normal.z = mesh->mNormals[i].z;
+
+        if (mesh->mTextureCoords[0]) {
+            // DRAWBACK: Only cares about the first texture
+            vertex.TexCoords.x = mesh->mTextureCoords[0][i].x;
+            vertex.TexCoords.y = mesh->mTextureCoords[0][i].y;
         } else {
             vertex.TexCoords = glm::vec2(0.0f, 0.0f);
         }
