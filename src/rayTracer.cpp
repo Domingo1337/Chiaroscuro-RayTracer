@@ -51,6 +51,30 @@ void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
     std::cerr << "took " << (finishedTime - beginTime).count() * 0.000000001f << " seconds.\n";
 }
 
+// generate random point on hemisphere defined by normal with Phong exponent's shininess
+// based off https://blog.thomaspoulet.fr/uniform-sampling-on-unit-hemisphere/
+glm::vec3 hemisphereRand(const glm::vec3 &normal, float shininess = 1.f) {
+    const float theta = acosf(powf(glm::linearRand(0.f, 1.f), 1.f / (1.f + shininess)));
+    const float phi = M_PI * glm::linearRand(0.f, 2.f);
+
+    const float x = sin(theta) * cos(phi);
+    const float y = sin(theta) * sin(phi);
+    glm::vec3 reflected(x, y, -glm::sqrt(1.f - x * x - y * y));
+
+    // rotate to normal
+    glm::mat3 rotate;
+    // cant rotate if normal is the same as UP (assumed {0,1,0})
+    if (std::abs(normal.y) > 0.99) {
+        const float sgn = normal.y > 0.f ? -1.f : 1.f;
+        rotate[0] = {1.f, 0.f, 0.f};
+        rotate[1] = {0.f, 0.f, sgn};
+        rotate[2] = {0.f, sgn, 0.f};
+    } else
+        rotate = glm::inverse(glm::mat3(glm::lookAt({0.f, 0.f, 0.f}, normal, {0.f, 1.f, 0.f})));
+
+    return glm::normalize(rotate * reflected);
+}
+
 glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const int k) {
     glm::vec3 pixel = {0.f, 0.f, 0.f};
     glm::vec3 cross;
@@ -85,10 +109,9 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
             }
 
             pixel += color.ambient * scene.ambientLight + color.diffuse * diffuse + color.specular * specular;
-            if (k > 1) {
-                glm::vec3 reflectedDir = glm::normalize(2.f * glm::dot(V, N) * N - V);
-                pixel += (float)M_1_PI * sendRay(cross + 0.0001f * reflectedDir, reflectedDir, k - 1);
-            }
+
+            glm::vec3 reflectedDir = glm::normalize(2.f * glm::dot(V, N) * N - V);
+            pixel += (float)M_1_PI * sendRay(cross + 0.0001f * reflectedDir, reflectedDir, k - 1);
         }
     }
     return pixel;

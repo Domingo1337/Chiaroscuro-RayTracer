@@ -132,7 +132,7 @@ void Mesh::setupMesh() {
 }
 
 Color::Color()
-    : ambient({0.2f, 0.2f, 0.2f}), diffuse({0.5f, 0.5f, 0.5f}), specular({0.7f, 0.7f, 0.7f}), shininess(5.f){};
+    : ambient({0.0f, 0.0f, 0.0f}), diffuse({0.5f, 0.5f, 0.5f}), specular({0.0f, 0.0f, 0.0f}), shininess(1.f){};
 
 Color::Color(glm::vec3 ambi, glm::vec3 diff, glm::vec3 spec, float shin)
     : ambient(ambi), diffuse(diff), specular(spec), shininess(shin){};
