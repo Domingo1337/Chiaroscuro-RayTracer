@@ -1,6 +1,8 @@
 #ifndef SCENE_H
 #define SCENE_H
 
+#include "kdtree.hpp"
+
 #include <glm/glm.hpp>
 
 #include <string>
@@ -31,11 +33,14 @@ class Scene {
     float yview;
     glm::vec3 ambientLight;
     std::vector<Light> lights;
+    std::vector<Triangle> triangleLights;
 
-    // command line args and their default values
-    bool usingOpenGLPreview = true;
-    unsigned int previewHeight = 900;
-    size_t kdtreeLeafSize = 8;
+    // command line args
+    bool usingOpenGLPreview;
+    unsigned int previewHeight;
+    size_t kdtreeLeafSize;
+    glm::vec3 background;
+    unsigned int samples;
 };
 
 #endif

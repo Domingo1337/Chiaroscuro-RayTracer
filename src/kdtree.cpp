@@ -1,5 +1,6 @@
 #include "kdtree.hpp"
 #include "model.hpp"
+#include "scene.hpp"
 
 #include <glm/gtx/io.hpp>
 
@@ -32,14 +33,12 @@ bool lessThan(glm::vec3 &compare, glm::vec3 &to) { return compare.x < to.x || co
 
 bool greaterThan(glm::vec3 &compare, glm::vec3 &to) { return compare.x > to.x || compare.y > to.y || compare.z > to.z; }
 
-KDTree::KDTree(Model &model, size_t leafSize_) : KDTree(model.meshes, leafSize_) {}
-
-KDTree::KDTree(std::vector<Mesh> &meshes, size_t leafSize_)
-    : leafSize(leafSize_), minCoords(FLT_MAX, FLT_MAX, FLT_MAX), maxCoords(FLT_MIN, FLT_MIN, FLT_MIN) {
+KDTree::KDTree(Model &model, Scene &scene)
+    : leafSize(scene.kdtreeLeafSize), minCoords(FLT_MAX, FLT_MAX, FLT_MAX), maxCoords(FLT_MIN, FLT_MIN, FLT_MIN) {
     size_t verticesCount = 0;
     size_t indicesCount = 0;
 
-    for (auto &mesh : meshes) {
+    for (auto &mesh : model.meshes) {
         verticesCount += mesh.vertices.size();
         indicesCount += mesh.indices.size();
     }
@@ -50,12 +49,16 @@ KDTree::KDTree(std::vector<Mesh> &meshes, size_t leafSize_)
 
     indicesCount = 0;
     verticesCount = 0;
-    for (auto &mesh : meshes) {
+    for (auto &mesh : model.meshes) {
+        const bool isLight = mesh.materialColor.emissive.r > 0.f || mesh.materialColor.emissive.g > 0.f ||
+                             mesh.materialColor.emissive.b > 0.f;
         auto &indices = mesh.indices;
         for (unsigned i = 0; i < indices.size(); i += 3, indicesCount++) {
             triangles[indicesCount].fst = indices[i + 0] + verticesCount;
             triangles[indicesCount].snd = indices[i + 1] + verticesCount;
             triangles[indicesCount].trd = indices[i + 2] + verticesCount;
+            if (isLight)
+                scene.triangleLights.push_back(triangles[indicesCount]);
         }
         for (unsigned i = 0; i < mesh.vertices.size(); i++) {
             materials[verticesCount] = &mesh;
@@ -73,6 +76,18 @@ KDTree::KDTree(std::vector<Mesh> &meshes, size_t leafSize_)
     nodes.push_back(KDTree::KDNode());
     nodes[0] = build(triangles, maxCoords, minCoords);
     std::cout << "Triangles in scene: " << triangles.size() << "\n";
+    std::cerr << "Surface Lights in scene:";
+    for (auto &tri : scene.triangleLights) {
+        std::cerr << "\nTriangle {" << vertices[tri.fst].Position << vertices[tri.snd].Position
+                  << vertices[tri.trd].Position << "} of color emissive " << materials[tri.fst]->materialColor.emissive;
+    }
+    std::cerr << (scene.triangleLights.size() == 0 ? " None.\n" : "\n");
+    std::cerr << "Point Lights in scene:";
+    for (auto &light : scene.lights) {
+        std::cerr << "\nPosition " << light.position << " of color " << light.color << " and intesity "
+                  << light.intensity;
+    }
+    std::cerr << (scene.lights.size() == 0 ? " None.\n" : "\n");
 
     minCoords -= 0.0001f;
     maxCoords += 0.0001f;
@@ -165,15 +180,15 @@ KDTree::KDNode KDTree::build(std::vector<Triangle> &tris, glm::vec3 &max, glm::v
 }
 
 std::pair<float, float> intersectRayBox(const glm::vec3 &origin, const glm::vec3 &dir, glm::vec3 &max, glm::vec3 &min) {
-    float dirinvx = 1.f / dir.x;
-    float dirinvy = 1.f / dir.y;
-    float dirinvz = 1.f / dir.z;
-    float txmin = (min.x - origin.x) * dirinvx;
-    float txmax = (max.x - origin.x) * dirinvx;
-    float tymin = (min.y - origin.y) * dirinvy;
-    float tymax = (max.y - origin.y) * dirinvy;
-    float tzmin = (min.z - origin.z) * dirinvz;
-    float tzmax = (max.z - origin.z) * dirinvz;
+    const float dirinvy = 1.f / dir.y;
+    const float dirinvx = 1.f / dir.x;
+    const float dirinvz = 1.f / dir.z;
+    const float txmin = (min.x - origin.x) * dirinvx;
+    const float txmax = (max.x - origin.x) * dirinvx;
+    const float tymin = (min.y - origin.y) * dirinvy;
+    const float tymax = (max.y - origin.y) * dirinvy;
+    const float tzmin = (min.z - origin.z) * dirinvz;
+    const float tzmax = (max.z - origin.z) * dirinvz;
     return {std::max(std::max(std::min(txmin, txmax), std::min(tymin, tymax)), std::min(tzmin, tzmax)),
             std::min(std::min(std::max(txmin, txmax), std::max(tymin, tymax)), std::max(tzmin, tzmax))};
 }
@@ -251,11 +266,13 @@ bool KDTree::intersectRayNode(const glm::vec3 &origin, const glm::vec3 &dir, Tri
                                 tmax);
 }
 
-bool KDTree::intersectShadowRay(const glm::vec3 &origin, const glm::vec3 &dir, float distance) {
+bool KDTree::intersectShadowRay(const glm::vec3 &origin, const glm::vec3 &dir, const float distance,
+                                const Triangle &lightTriangle) {
     auto intersect = intersectRayBox(origin, dir, maxCoords, minCoords);
     if (intersect.second < 0 || intersect.second < intersect.first || intersect.first > distance)
         return false;
-    return intersectShadowRayNode(origin, dir, nodes[0], intersect.first, std::min(intersect.second, distance));
+    return intersectShadowRayNode(origin, dir, lightTriangle, nodes[0], intersect.first,
+                                  std::min(intersect.second, distance));
 }
 
 // pretty much the same as intersectRayTriangle
@@ -288,11 +305,13 @@ bool KDTree::intersectShadowRayTriangle(const glm::vec3 &origin, const glm::vec3
     return t >= 0.f && t < tmax;
 }
 
-bool KDTree::intersectShadowRayNode(const glm::vec3 &origin, const glm::vec3 &dir, KDTree::KDNode &node, float tmin,
-                                    float tmax) {
+bool KDTree::intersectShadowRayNode(const glm::vec3 &origin, const glm::vec3 &dir, const Triangle &lightTriangle,
+                                    KDTree::KDNode &node, float tmin, float tmax) {
     if (node.isLeaf) {
         for (auto &tri : node.triangles) {
-            if (intersectShadowRayTriangle(origin, dir, tri, tmax)) {
+            // todo: unique triangle id or something
+            if (tri.fst != lightTriangle.fst && tri.snd != lightTriangle.snd && tri.trd != lightTriangle.trd &&
+                intersectShadowRayTriangle(origin, dir, tri, tmax)) {
                 return true;
             }
         }
@@ -304,10 +323,10 @@ bool KDTree::intersectShadowRayNode(const glm::vec3 &origin, const glm::vec3 &di
                             (origin[node.split.axis] == node.split.position && dir[node.split.axis] <= 0);
 
     if (tsplit >= tmax || tsplit < 0)
-        return intersectShadowRayNode(origin, dir, nodes[node.child + (1 - belowFirst)], tmin, tmax);
+        return intersectShadowRayNode(origin, dir, lightTriangle, nodes[node.child + (1 - belowFirst)], tmin, tmax);
     else if (tsplit <= tmin)
-        return intersectShadowRayNode(origin, dir, nodes[node.child + belowFirst], tmin, tmax);
+        return intersectShadowRayNode(origin, dir, lightTriangle, nodes[node.child + belowFirst], tmin, tmax);
     else
-        return intersectShadowRayNode(origin, dir, nodes[node.child + (1 - belowFirst)], tmin, tsplit) ||
-               intersectShadowRayNode(origin, dir, nodes[node.child + belowFirst], tsplit, tmax);
+        return intersectShadowRayNode(origin, dir, lightTriangle, nodes[node.child + (1 - belowFirst)], tmin, tsplit) ||
+               intersectShadowRayNode(origin, dir, lightTriangle, nodes[node.child + belowFirst], tsplit, tmax);
 }

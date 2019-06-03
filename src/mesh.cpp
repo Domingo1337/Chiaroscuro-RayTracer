@@ -7,7 +7,6 @@
 
 #include <glad/glad.h>
 
-
 Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture> textures,
            Color materialColor) {
     this->vertices = vertices;
@@ -131,8 +130,7 @@ void Mesh::setupMesh() {
     }
 }
 
-Color::Color()
-    : ambient({0.0f, 0.0f, 0.0f}), diffuse({0.5f, 0.5f, 0.5f}), specular({0.0f, 0.0f, 0.0f}), shininess(1.f){};
+Color::Color() : ambient(0, 0, 0), diffuse(0, 0, 0), specular(0, 0, 0), emissive(0, 0, 0), shininess(1){};
 
 Color::Color(glm::vec3 ambi, glm::vec3 diff, glm::vec3 spec, float shin)
     : ambient(ambi), diffuse(diff), specular(spec), shininess(shin){};

@@ -84,14 +84,21 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene) {
     Color meshColor;
     if (mesh->mMaterialIndex > 0) {
         aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
+        aiColor4D color;
 
-        aiColor3D color(0.f, 0.f, 0.f);
-        material->Get(AI_MATKEY_COLOR_AMBIENT, color);
-        meshColor.ambient = {color.r, color.g, color.b};
-        material->Get(AI_MATKEY_COLOR_DIFFUSE, color);
-        meshColor.diffuse = {color.r, color.g, color.b};
-        material->Get(AI_MATKEY_COLOR_SPECULAR, color);
-        meshColor.specular = {color.r, color.g, color.b};
+        if (material->Get(AI_MATKEY_COLOR_EMISSIVE, color) == AI_SUCCESS) {
+            meshColor.emissive = {color.r, color.g, color.b};
+        }
+        if (material->Get(AI_MATKEY_COLOR_DIFFUSE, color) == AI_SUCCESS) {
+            meshColor.diffuse = {color.r, color.g, color.b};
+        }
+        if (material->Get(AI_MATKEY_COLOR_AMBIENT, color) == AI_SUCCESS) {
+            meshColor.ambient = {color.r, color.g, color.b};
+        }
+
+        if (material->Get(AI_MATKEY_COLOR_SPECULAR, color) == AI_SUCCESS) {
+            meshColor.specular = {color.r, color.g, color.b};
+        }
         material->Get(AI_MATKEY_SHININESS, meshColor.shininess);
 
         std::vector<Texture> diffuseMaps = loadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_diffuse");

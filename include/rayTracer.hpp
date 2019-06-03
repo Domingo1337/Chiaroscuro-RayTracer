@@ -7,7 +7,6 @@
 #include <glm/glm.hpp>
 #include <vector>
 
-class Model;
 class Color;
 
 class RayTracer {
@@ -36,7 +35,6 @@ class RayTracer {
     /* Intersect ray specified by origin and direction with kd-tree, storing the hitpoint in params: cross, normal, color */
     bool intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &cross, glm::vec3 &normal, Color &color);
 
-    Model &model;
     Scene &scene;
     std::vector<std::vector<glm::vec3>> pixels;
     std::vector<uint8_t> data;

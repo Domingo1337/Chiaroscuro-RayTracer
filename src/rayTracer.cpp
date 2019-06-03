@@ -1,21 +1,22 @@
 #include "rayTracer.hpp"
-#include "model.hpp"
 
 #include <FreeImage.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
+#include <glm/gtx/io.hpp>
 #include <omp.h>
 
 #include <chrono>
 #include <iostream>
 
 RayTracer::RayTracer(Model &_model, Scene &_scene)
-    : model(_model), scene(_scene), pixels(_scene.yres, std::vector<glm::vec3>(_scene.xres)),
-      data(scene.yres * scene.xres * 3), kdtree(_model, _scene.kdtreeLeafSize) {}
+    : scene(_scene), pixels(_scene.yres, std::vector<glm::vec3>(_scene.xres)), data(scene.yres * scene.xres * 3),
+      kdtree(_model, _scene) {}
 
 void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1.f, 0.f}, float yview = 1.f) {
-    std::cerr << "Rendering image of size " << scene.xres << "x" << scene.yres << " using " << omp_get_max_threads()
-              << " threads...\t";
+    std::cerr << "Rendering image of size " << scene.xres << "x" << scene.yres << " with " << scene.samples
+              << " samples, using " << omp_get_max_threads() << " threads...\t";
+
     auto beginTime = std::chrono::high_resolution_clock::now();
 
     float z = 1.f;
@@ -33,17 +34,15 @@ void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
 #pragma omp parallel for
     for (unsigned y = 0; y < scene.yres; y++) {
         for (unsigned x = 0; x < scene.xres; x++) {
-            pixels[y][x] = sendRay(eye, leftUpper + float(x) * dx + float(y) * dy, scene.k);
+            pixels[y][x] = {0.f, 0.f, 0.f};
+            for (unsigned s = 0; s < scene.samples; s++)
+                pixels[y][x] += sendRay(
+                    eye, leftUpper + (x + glm::linearRand(-0.5f, 0.5f)) * dx + (y + glm::linearRand(-0.5f, 0.5f)) * dy,
+                    scene.k);
 
             maxVal = maxVal > pixels[y][x].r ? maxVal : pixels[y][x].r;
             maxVal = maxVal > pixels[y][x].g ? maxVal : pixels[y][x].g;
             maxVal = maxVal > pixels[y][x].b ? maxVal : pixels[y][x].b;
-
-            glm::vec3 pixel = glm::clamp(pixels[y][x], 0.f, 1.f);
-            int i = 3 * ((scene.yres - y - 1) * scene.xres + x);
-            data[i++] = (uint8_t)(255.f * pixel.r);
-            data[i++] = (uint8_t)(255.f * pixel.g);
-            data[i++] = (uint8_t)(255.f * pixel.b);
         }
     }
 
@@ -53,68 +52,79 @@ void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
 
 // generate random point on hemisphere defined by normal with Phong exponent's shininess
 // based off https://blog.thomaspoulet.fr/uniform-sampling-on-unit-hemisphere/
-glm::vec3 hemisphereRand(const glm::vec3 &normal, float shininess = 1.f) {
+glm::vec3 hemisphereRand(float shininess = 1.f) {
     const float theta = acosf(powf(glm::linearRand(0.f, 1.f), 1.f / (1.f + shininess)));
     const float phi = M_PI * glm::linearRand(0.f, 2.f);
 
     const float x = sin(theta) * cos(phi);
     const float y = sin(theta) * sin(phi);
-    glm::vec3 reflected(x, y, -glm::sqrt(1.f - x * x - y * y));
-
-    // rotate to normal
-    glm::mat3 rotate;
-    // cant rotate if normal is the same as UP (assumed {0,1,0})
-    if (std::abs(normal.y) > 0.99) {
-        const float sgn = normal.y > 0.f ? -1.f : 1.f;
-        rotate[0] = {1.f, 0.f, 0.f};
-        rotate[1] = {0.f, 0.f, sgn};
-        rotate[2] = {0.f, sgn, 0.f};
-    } else
-        rotate = glm::inverse(glm::mat3(glm::lookAt({0.f, 0.f, 0.f}, normal, {0.f, 1.f, 0.f})));
-
-    return glm::normalize(rotate * reflected);
+    return glm::vec3(x, y, -glm::sqrt(1.f - x * x - y * y));
 }
 
 glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const int k) {
-    glm::vec3 pixel = {0.f, 0.f, 0.f};
     glm::vec3 cross;
     glm::vec3 normal;
     Color color;
     if (intersectRayKDTree(origin, dir, cross, normal, color)) {
-        if (k == 0) {
-            return color.diffuse;
-        } else {
-            glm::vec3 V = glm::normalize(origin - cross); // vector from cross to origin
-            glm::vec3 N = glm::normalize(normal);         // normal in point of cross
+        // inverse direction
+        glm::vec3 viewer = glm::normalize(origin - cross);
 
-            glm::vec3 diffuse = {0.f, 0.f, 0.f};
-            glm::vec3 specular = {0.f, 0.f, 0.f};
-            for (auto &light : scene.lights) {
-                glm::vec3 tempCross, tempNormal;
-                Color tempColor;
-                glm::vec3 lightdir = glm::normalize(light.position - cross);
-                float distance = glm::distance(cross, light.position);
-                if (!kdtree.intersectShadowRay(cross + (0.0001f * lightdir), lightdir, distance)) {
+        glm::vec3 direct(0.f, 0.f, 0.f);
 
-                    /* Phong's model */
-                    glm::vec3 L = lightdir;
-                    glm::vec3 R = glm::normalize(2.f * (glm::dot(L, N)) * N - L);
+        for (auto &light : scene.lights) {
+            glm::vec3 lightdir = glm::normalize(light.position - cross);
+            float distance = glm::distance(cross, light.position);
 
-                    float attentuation = (1.f / (1.f + distance * distance));
-                    glm::vec3 lightColor = light.color * light.intensity * attentuation;
-
-                    diffuse += glm::max(glm::dot(L, N), 0.f) * lightColor;
-                    specular += glm::pow(glm::max(glm::dot(R, V), 0.f), color.shininess) * lightColor;
-                }
+            Triangle placeholder;
+            placeholder.fst = placeholder.snd = placeholder.trd = -1;
+            if (!kdtree.intersectShadowRay(cross + (0.0001f * lightdir), lightdir, distance, placeholder)) {
+                float attentuation = (1.f / (1.f + distance * distance));
+                direct += light.color * attentuation * light.intensity;
+                // make this more physically corect or get rid of it
             }
-
-            pixel += color.ambient * scene.ambientLight + color.diffuse * diffuse + color.specular * specular;
-
-            glm::vec3 reflectedDir = glm::normalize(2.f * glm::dot(V, N) * N - V);
-            pixel += (float)M_1_PI * sendRay(cross + 0.0001f * reflectedDir, reflectedDir, k - 1);
         }
+
+        for (auto &light : scene.triangleLights) {
+            // choose random point on light triangle
+            const float v0 = glm::linearRand(0.f, 1.f);
+            const float v1 = glm::linearRand(0.f, 1.f - v0);
+            glm::vec3 lightPoint = v0 * kdtree.vertices[light.fst].Position + v1 * kdtree.vertices[light.snd].Position +
+                                   (1.f - v0 - v1) * kdtree.vertices[light.trd].Position;
+
+            float distance = glm::distance(cross, lightPoint);
+            glm::vec3 lightdir = glm::normalize(lightPoint - cross);
+            if (!kdtree.intersectShadowRay(cross + (0.0001f * lightdir), lightdir, distance, light)) {
+                float attentuation = (1.f / (1.f + distance * distance));
+                direct += kdtree.materials[light.fst]->materialColor.emissive * attentuation;
+                // TODO:
+                //  divided by light surface
+                //  throw in some cosines
+            }
+        }
+
+        if (k == 0)
+            return direct * color.diffuse + color.emissive;
+
+        // calculate reflected ray:
+        // rotation to normal matrix
+        glm::mat3 rotate;
+        // if normal is the same as 'up' vector we cant use glm::inverse
+        if (std::abs(normal.y) >= 0.99f) {
+            float sgn = normal.y > 0.f ? 1.f : -1.f;
+            rotate[0] = {1.f, 0.f, 0.f};
+            rotate[1] = {0.f, 0.f, sgn};
+            rotate[1] = {0.f, sgn, 0.f};
+        } else
+            rotate = glm::inverse(glm::mat3(glm::lookAt({0.f, 0.f, 0.f}, normal, {0.f, 1.f, 0.f})));
+        const glm::vec3 reflectedDir = glm::normalize(rotate * hemisphereRand());
+
+        const float indrctCoeff = fabs(glm::dot(viewer, reflectedDir)) * M_PI * 1.3f;
+        const glm::vec3 indirect = indrctCoeff * sendRay(cross + 0.0001f * reflectedDir, reflectedDir, k - 1);
+
+        // right now there's just diffuse colour
+        return (direct + indirect) * float(M_1_PI) * color.diffuse;
     }
-    return pixel;
+    return scene.background;
 }
 
 bool RayTracer::intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &cross,

@@ -18,6 +18,12 @@ Scene::Scene(int argc, char **argv) : Scene(argc > 1 ? argv[1] : "view_test.rtc"
 }
 
 Scene::Scene(std::string filename) {
+    this->usingOpenGLPreview = true;
+    this->previewHeight = 900;
+    this->kdtreeLeafSize = 8;
+    this->background = {0.1f, 0.1f, 0.1f};
+    this->samples = 100;
+
     std::ifstream input(filename);
     char c;
     while (input >> c && c == '#') {
