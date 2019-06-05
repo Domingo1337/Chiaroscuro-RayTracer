@@ -29,11 +29,11 @@ struct Texture {
 
 struct Color {
     Color();
-    Color(glm::vec3 ambi, glm::vec3 diff, glm::vec3 spec, float shin);
+    Color(glm::vec3 ambient, glm::vec3 diffse, glm::vec3 specular, glm::vec3 emissive, float shininess);
     glm::vec3 ambient;
     glm::vec3 diffuse;
-    glm::vec3 emissive;
     glm::vec3 specular;
+    glm::vec3 emissive;
     float shininess;
 };
 

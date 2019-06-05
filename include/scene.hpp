@@ -8,11 +8,17 @@
 #include <string>
 #include <vector>
 
-struct Light {
-    Light(glm::vec3 _color, glm::vec3 _position, float _intensity);
+struct LightPoint {
+    LightPoint(glm::vec3 color, glm::vec3 position, float intensity);
     glm::vec3 color;
     glm::vec3 position;
     float intensity;
+};
+
+struct LightTriangle {
+    LightTriangle(id_t id, float invSurface);
+    id_t id;
+    float invSurface;
 };
 
 class Scene {
@@ -31,9 +37,7 @@ class Scene {
     glm::vec3 LA;
     glm::vec3 UP;
     float yview;
-    glm::vec3 ambientLight;
-    std::vector<Light> lights;
-    std::vector<Triangle> triangleLights;
+    std::vector<LightPoint> lightPoints;
 
     // command line args
     bool usingOpenGLPreview;
@@ -41,6 +45,8 @@ class Scene {
     size_t kdtreeLeafSize;
     glm::vec3 background;
     unsigned int samples;
+
+    std::vector<LightTriangle> lightTriangles;
 };
 
 #endif

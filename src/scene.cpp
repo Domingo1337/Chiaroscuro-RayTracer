@@ -1,5 +1,7 @@
 #include "scene.hpp"
 
+#include "glm/gtc/random.hpp"
+
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -21,7 +23,7 @@ Scene::Scene(std::string filename) {
     this->usingOpenGLPreview = true;
     this->previewHeight = 900;
     this->kdtreeLeafSize = 8;
-    this->background = {0.1f, 0.1f, 0.1f};
+    this->background = {0.5f, 0.5f, 0.5f};
     this->samples = 100;
 
     std::ifstream input(filename);
@@ -50,15 +52,13 @@ Scene::Scene(std::string filename) {
         input >> intensity;
 
         color /= 255.f;
-        ambientLight += color;
 
-        lights.push_back(Light(color, position, intensity));
+        lightPoints.push_back(LightPoint(color, position, intensity));
     }
     input.close();
-
-    // some meaningless number here
-    ambientLight /= 10 * lights.size();
 }
 
-Light::Light(glm::vec3 _color, glm::vec3 _position, float _intensity)
+LightPoint::LightPoint(glm::vec3 _color, glm::vec3 _position, float _intensity)
     : color(_color), position(_position), intensity(_intensity) {}
+
+LightTriangle::LightTriangle(id_t _id, float _invSurface) : id(_id), invSurface(_invSurface){};

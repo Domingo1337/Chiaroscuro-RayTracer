@@ -38,7 +38,7 @@ void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
             for (unsigned s = 0; s < scene.samples; s++)
                 pixels[y][x] += sendRay(
                     eye, leftUpper + (x + glm::linearRand(-0.5f, 0.5f)) * dx + (y + glm::linearRand(-0.5f, 0.5f)) * dy,
-                    scene.k);
+                    1);
 
             maxVal = maxVal > pixels[y][x].r ? maxVal : pixels[y][x].r;
             maxVal = maxVal > pixels[y][x].g ? maxVal : pixels[y][x].g;
@@ -71,44 +71,43 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
 
         glm::vec3 direct(0.f, 0.f, 0.f);
 
-        for (auto &light : scene.lights) {
+        for (auto &light : scene.lightPoints) {
             glm::vec3 lightdir = glm::normalize(light.position - cross);
             float distance = glm::distance(cross, light.position);
 
-            Triangle placeholder;
-            placeholder.fst = placeholder.snd = placeholder.trd = -1;
-            if (!kdtree.intersectShadowRay(cross + (0.0001f * lightdir), lightdir, distance, placeholder)) {
+            id_t placeholder = -1;
+            if (!kdtree.intersectShadowRay(cross + (0.0001f * normal), lightdir, distance, placeholder)) {
                 float attentuation = (1.f / (1.f + distance * distance));
                 direct += light.color * attentuation * light.intensity;
                 // make this more physically corect or get rid of it
             }
         }
 
-        for (auto &light : scene.triangleLights) {
+        for (auto &light : scene.lightTriangles) {
             // choose random point on light triangle
             const float v0 = glm::linearRand(0.f, 1.f);
             const float v1 = glm::linearRand(0.f, 1.f - v0);
-            glm::vec3 lightPoint = v0 * kdtree.vertices[light.fst].Position + v1 * kdtree.vertices[light.snd].Position +
-                                   (1.f - v0 - v1) * kdtree.vertices[light.trd].Position;
+            const Triangle &lightTriangle = kdtree.triangles[light.id];
+            const glm::vec3 lightPoint = v0 * lightTriangle.fst.Position + v1 * lightTriangle.snd.Position +
+                                         (1.f - v0 - v1) * lightTriangle.trd.Position;
 
-            float distance = glm::distance(cross, lightPoint);
-            glm::vec3 lightdir = glm::normalize(lightPoint - cross);
-            if (!kdtree.intersectShadowRay(cross + (0.0001f * lightdir), lightdir, distance, light)) {
-                float attentuation = (1.f / (1.f + distance * distance));
-                direct += kdtree.materials[light.fst]->materialColor.emissive * attentuation;
-                // TODO:
-                //  divided by light surface
-                //  throw in some cosines
+            const float distance = glm::distance(cross, lightPoint);
+            const glm::vec3 lightdir = glm::normalize(lightPoint - cross);
+            if (!kdtree.intersectShadowRay(cross + (0.0001f * normal), lightdir, distance, light.id)) {
+                const glm::vec3 &lightNormal = lightTriangle.fst.Normal;
+                const float attentuation = (1.f / (1.f + distance * distance));
+
+                direct += lightTriangle.mat->materialColor.emissive * attentuation;
             }
         }
 
-        if (k == 0)
+        if (k == scene.k)
             return direct * color.diffuse + color.emissive;
 
         // calculate reflected ray:
         // rotation to normal matrix
         glm::mat3 rotate;
-        // if normal is the same as 'up' vector we cant use glm::inverse
+        // if normal is the same as 'up' vector we cant use glm::lookAt
         if (std::abs(normal.y) >= 0.99f) {
             float sgn = normal.y > 0.f ? 1.f : -1.f;
             rotate[0] = {1.f, 0.f, 0.f};
@@ -118,11 +117,11 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
             rotate = glm::inverse(glm::mat3(glm::lookAt({0.f, 0.f, 0.f}, normal, {0.f, 1.f, 0.f})));
         const glm::vec3 reflectedDir = glm::normalize(rotate * hemisphereRand());
 
-        const float indrctCoeff = fabs(glm::dot(viewer, reflectedDir)) * M_PI * 1.3f;
-        const glm::vec3 indirect = indrctCoeff * sendRay(cross + 0.0001f * reflectedDir, reflectedDir, k - 1);
+        const float indrctCoeff = std::abs(glm::dot(normal, reflectedDir));
+        const glm::vec3 indirect = indrctCoeff * sendRay(cross + 0.0001f * normal, reflectedDir, k + 1) * 1.3f;
 
         // right now there's just diffuse colour
-        return (direct + indirect) * float(M_1_PI) * color.diffuse;
+        return (direct + indirect) * color.diffuse;
     }
     return scene.background;
 }
@@ -131,18 +130,18 @@ bool RayTracer::intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &dir
                                    glm::vec3 &normal, Color &color) {
     glm::vec2 baryPos;
     float distance;
-    Triangle triangle;
+    id_t triangle;
     if (!kdtree.intersectRay(origin, direction, triangle, baryPos, distance))
         return false;
 
-    Vertex &fst = kdtree.vertices[triangle.fst];
-    Vertex &snd = kdtree.vertices[triangle.snd];
-    Vertex &trd = kdtree.vertices[triangle.trd];
+    Vertex &fst = kdtree.triangles[triangle].fst;
+    Vertex &snd = kdtree.triangles[triangle].snd;
+    Vertex &trd = kdtree.triangles[triangle].trd;
     float baryPosz = (1.f - baryPos.x - baryPos.y);
 
     normal = fst.Normal * baryPosz + snd.Normal * baryPos.x + trd.Normal * baryPos.y;
     cross = fst.Position * baryPosz + snd.Position * baryPos.x + trd.Position * baryPos.y;
-    color = kdtree.materials[triangle.fst]->getColorAt(fst.TexCoords * baryPosz + snd.TexCoords * baryPos.x +
+    color = kdtree.triangles[triangle].mat->getColorAt(fst.TexCoords * baryPosz + snd.TexCoords * baryPos.x +
                                                        trd.TexCoords * baryPos.y);
     return true;
 }
@@ -154,7 +153,7 @@ void RayTracer::normalizeImage() { normalizeImage(maxVal); }
 void RayTracer::normalizeImage(float max) {
     if (max == 0.f)
         return;
-    float inversedMax = 1 / max;
+    float inversedMax = 1.f / max;
     for (unsigned y = 0; y < scene.yres; y++) {
         for (unsigned x = 0; x < scene.xres; x++) {
             glm::vec3 pixel = glm::clamp(pixels[y][x] * inversedMax, 0.f, 1.f);

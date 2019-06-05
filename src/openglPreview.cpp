@@ -12,8 +12,8 @@
 
 OpenGLPreview::OpenGLPreview(Scene *_scene)
     : scene(_scene), previewHeight(_scene->previewHeight),
-      previewWidth(((double)_scene->xres / _scene->yres) * _scene->previewHeight), camera(_scene->VP, _scene->LA, _scene->UP),
-      showRender(false) {
+      previewWidth(((double)_scene->xres / _scene->yres) * _scene->previewHeight),
+      camera(_scene->VP, _scene->LA, _scene->UP), showRender(false) {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -80,11 +80,11 @@ void OpenGLPreview::loop() {
             shaderMaterial.setMat4("projection", projection);
 
             // care only about first light, it's just a preview
-            shaderMaterial.setVec3("light.position", scene->lights[0].position);
+            shaderMaterial.setVec3("light.position", scene->lightPoints[0].position);
             shaderMaterial.setVec3("viewPos", camera.Position);
-            shaderMaterial.setVec3("light.ambient", scene->ambientLight);
-            shaderMaterial.setVec3("light.diffuse", scene->lights[0].color);
-            shaderMaterial.setVec3("light.specular", scene->lights[0].color);
+            shaderMaterial.setVec3("light.ambient", scene->lightPoints[0].color);
+            shaderMaterial.setVec3("light.diffuse", scene->lightPoints[0].color);
+            shaderMaterial.setVec3("light.specular", scene->lightPoints[0].color);
 
             model->Draw(shaderTextured, shaderMaterial);
         }

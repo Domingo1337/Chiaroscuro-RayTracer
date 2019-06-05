@@ -11,27 +11,30 @@ class Mesh;
 class Scene;
 class Vertex;
 
+// so far material is just a mesh in disguise
+typedef  Mesh Material;
+
 struct Triangle {
-    id_t fst;
-    id_t snd;
-    id_t trd;
+    Vertex fst;
+    Vertex snd;
+    Vertex trd;
+    Material *mat;
 };
 
 class KDTree {
   public:
     const size_t leafSize;
     KDTree(Model &model, Scene &scene);
-    bool intersectRay(const glm::vec3 &origin, const glm::vec3 &dir, Triangle &triangle, glm::vec2 &baryPosition,
+    bool intersectRay(const glm::vec3 &origin, const glm::vec3 &dir, id_t &triangle, glm::vec2 &baryPosition,
                       float &distance);
     bool intersectShadowRay(const glm::vec3 &origin, const glm::vec3 &dir, const float distance,
-                            const Triangle &lightTriangle);
-    std::vector<Vertex> vertices;
-    std::vector<Mesh *> materials;
+                            const id_t lightTriangle);
+    std::vector<Triangle> triangles;
     glm::vec3 minCoords;
     glm::vec3 maxCoords;
     struct KDNode {
         // leaf
-        std::vector<Triangle> triangles;
+        std::vector<id_t> trianglesids;
 
         // node
         id_t child;
@@ -45,19 +48,19 @@ class KDTree {
     };
 
   private:
-    bool intersectRayTriangle(const glm::vec3 &origin, const glm::vec3 &dir, const Triangle &tri,
-                              glm::vec2 &baryPosition, float &distance);
-    bool intersectRayNode(const glm::vec3 &origin, const glm::vec3 &dir, Triangle &triangle, glm::vec2 &baryPosition,
+    bool intersectRayTriangle(const glm::vec3 &origin, const glm::vec3 &dir, const id_t tri, glm::vec2 &baryPosition,
+                              float &distance);
+    bool intersectRayNode(const glm::vec3 &origin, const glm::vec3 &dir, id_t &triangle, glm::vec2 &baryPosition,
                           float &distance, KDTree::KDNode &node, float tmin, float tmax);
-    bool intersectShadowRayTriangle(const glm::vec3 &origin, const glm::vec3 &dir, const Triangle &tri, float dist);
-    bool intersectShadowRayNode(const glm::vec3 &origin, const glm::vec3 &dir, const Triangle &lightTriangle,
+    bool intersectShadowRayTriangle(const glm::vec3 &origin, const glm::vec3 &dir, const id_t tri, float dist);
+    bool intersectShadowRayNode(const glm::vec3 &origin, const glm::vec3 &dir, const id_t lightTriangle,
                                 KDTree::KDNode &node, float tmin, float tmax);
-    KDNode build(std::vector<Triangle> &tris, glm::vec3 &max, glm::vec3 &min);
-    KDNode::Split findSplit(std::vector<Triangle> &tris, glm::vec3 &max, glm::vec3 &min);
-    float triMin(Triangle &t, id_t axis);
-    float triMax(Triangle &t, id_t axis);
-    bool inRight(Triangle &t, float min, id_t axis);
-    bool inLeft(Triangle &t, float max, id_t axis);
+    KDNode build(std::vector<id_t> &tris, glm::vec3 &max, glm::vec3 &min);
+    KDNode::Split findSplit(std::vector<id_t> &tris, glm::vec3 &max, glm::vec3 &min);
+    float triMin(id_t t, id_t axis);
+    float triMax(id_t t, id_t axis);
+    bool inRight(id_t t, float min, id_t axis);
+    bool inLeft(id_t t, float max, id_t axis);
     std::vector<KDNode> nodes;
 };
 
