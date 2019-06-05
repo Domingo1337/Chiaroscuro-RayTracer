@@ -23,7 +23,7 @@ Scene::Scene(std::string filename) {
     this->usingOpenGLPreview = true;
     this->previewHeight = 900;
     this->kdtreeLeafSize = 8;
-    this->background = {0.5f, 0.5f, 0.5f};
+    this->background = {0.1f, 0.1f, 0.1f};
     this->samples = 100;
 
     std::ifstream input(filename);

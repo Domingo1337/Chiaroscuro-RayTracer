@@ -69,6 +69,10 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
         // inverse direction
         glm::vec3 viewer = glm::normalize(origin - cross);
 
+        // 11 is a placeholder for inversed light surface area in cornell box
+        if (color.emissive.r > 0.f || color.emissive.g > 0.f || color.emissive.b > 0.f)
+            return color.emissive * 11.f * std::abs(glm::dot(viewer, normal));
+
         glm::vec3 direct(0.f, 0.f, 0.f);
 
         for (auto &light : scene.lightPoints) {
@@ -97,12 +101,16 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
                 const glm::vec3 &lightNormal = lightTriangle.fst.Normal;
                 const float attentuation = (1.f / (1.f + distance * distance));
 
-                direct += lightTriangle.mat->materialColor.emissive * attentuation;
+                const float cosCross = std::max(0.f, glm::dot(normal, lightdir));
+                const float cosLight = std::abs(glm::dot(-lightdir, lightNormal));
+
+                direct +=
+                    lightTriangle.mat->materialColor.emissive * attentuation * light.invSurface * cosCross * cosLight;
             }
         }
 
         if (k == scene.k)
-            return direct * color.diffuse + color.emissive;
+            return direct * color.diffuse;
 
         // calculate reflected ray:
         // rotation to normal matrix
@@ -118,7 +126,7 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
         const glm::vec3 reflectedDir = glm::normalize(rotate * hemisphereRand());
 
         const float indrctCoeff = std::abs(glm::dot(normal, reflectedDir));
-        const glm::vec3 indirect = indrctCoeff * sendRay(cross + 0.0001f * normal, reflectedDir, k + 1) * 1.3f;
+        const glm::vec3 indirect = indrctCoeff * sendRay(cross + 0.0001f * normal, reflectedDir, k + 1);
 
         // right now there's just diffuse colour
         return (direct + indirect) * color.diffuse;
@@ -153,14 +161,13 @@ void RayTracer::normalizeImage() { normalizeImage(maxVal); }
 void RayTracer::normalizeImage(float max) {
     if (max == 0.f)
         return;
-    float inversedMax = 1.f / max;
+    float inversedMax = 1.f / sqrtf(max);
     for (unsigned y = 0; y < scene.yres; y++) {
         for (unsigned x = 0; x < scene.xres; x++) {
-            glm::vec3 pixel = glm::clamp(pixels[y][x] * inversedMax, 0.f, 1.f);
             int i = 3 * ((scene.yres - y - 1) * scene.xres + x);
-            data[i++] = (uint8_t)(255.f * pixel.r);
-            data[i++] = (uint8_t)(255.f * pixel.g);
-            data[i++] = (uint8_t)(255.f * pixel.b);
+            data[i++] = (uint8_t)(255.f * glm::clamp(sqrtf(pixels[y][x].r) * inversedMax, 0.f, 1.f));
+            data[i++] = (uint8_t)(255.f * glm::clamp(sqrtf(pixels[y][x].g) * inversedMax, 0.f, 1.f));
+            data[i++] = (uint8_t)(255.f * glm::clamp(sqrtf(pixels[y][x].b) * inversedMax, 0.f, 1.f));
         }
     }
 }
