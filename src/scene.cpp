@@ -12,6 +12,8 @@ Scene::Scene(int argc, char **argv) : Scene(argc > 1 ? argv[1] : "view_test.rtc"
             usingOpenGLPreview = false;
         else if (strcmp(argv[i], "--preview-height") == 0)
             previewHeight = std::stoi(argv[++i]);
+        else if (strcmp(argv[i], "--samples") == 0)
+            samples = std::stoi(argv[++i]);
         else if (strcmp(argv[i], "--kdtree-leaf-size") == 0)
             kdtreeLeafSize = std::stoi(argv[++i]);
         else
