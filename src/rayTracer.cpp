@@ -1,4 +1,5 @@
 #include "rayTracer.hpp"
+#include "material.hpp"
 
 #include <FreeImage.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -64,28 +65,14 @@ glm::vec3 hemisphereRand(float shininess = 1.f) {
 glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const int k) {
     glm::vec3 cross;
     glm::vec3 normal;
-    Color color;
-    if (intersectRayKDTree(origin, dir, cross, normal, color)) {
+    BRDF *material;
+    if (intersectRayKDTree(origin, dir, cross, normal, material)) {
         // inverse direction
         glm::vec3 viewer = glm::normalize(origin - cross);
 
-        // 11 is a placeholder for inversed light surface area in cornell box
-        if (color.emissive.r > 0.f || color.emissive.g > 0.f || color.emissive.b > 0.f)
-            return color.emissive * 11.f * std::abs(glm::dot(viewer, normal));
+        glm::vec3 emissedLight = (k > 1) ? glm::vec3(0.f) : material->radiance() * std::abs(glm::dot(viewer, normal));
 
         glm::vec3 direct(0.f, 0.f, 0.f);
-
-        for (auto &light : scene.lightPoints) {
-            glm::vec3 lightdir = glm::normalize(light.position - cross);
-            float distance = glm::distance(cross, light.position);
-
-            id_t placeholder = -1;
-            if (!kdtree.intersectShadowRay(cross + (0.0001f * normal), lightdir, distance, placeholder)) {
-                float attentuation = (1.f / (1.f + distance * distance));
-                direct += light.color * attentuation * light.intensity;
-                // make this more physically corect or get rid of it
-            }
-        }
 
         for (auto &light : scene.lightTriangles) {
             // choose random point on light triangle
@@ -97,45 +84,43 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
 
             const float distance = glm::distance(cross, lightPoint);
             const glm::vec3 lightdir = glm::normalize(lightPoint - cross);
+
             if (!kdtree.intersectShadowRay(cross + (0.0001f * normal), lightdir, distance, light.id)) {
                 const glm::vec3 &lightNormal = lightTriangle.fst.Normal;
                 const float attentuation = (1.f / (1.f + distance * distance));
 
-                const float cosCross = std::max(0.f, glm::dot(normal, lightdir));
+                const float cosine = std::abs(glm::dot(normal, lightdir));
                 const float cosLight = std::abs(glm::dot(-lightdir, lightNormal));
 
-                direct +=
-                    lightTriangle.mat->materialColor.emissive * attentuation * light.invSurface * cosCross * cosLight;
+                float pdf;
+                const glm::vec3 brdf = material->known_wi(lightdir, viewer, normal, pdf);
+
+                if (pdf != 0.f)
+                    direct += 0.5f * lightTriangle.brdf->radiance() * attentuation * cosLight // incoming light
+                              * (brdf * cosine / pdf);                                        // surface color
             }
         }
 
         if (k == scene.k)
-            return direct * color.diffuse;
+            return direct + emissedLight;
 
-        // calculate reflected ray:
-        // rotation to normal matrix
-        glm::mat3 rotate;
-        // if normal is the same as 'up' vector we cant use glm::lookAt
-        if (std::abs(normal.y) >= 0.99f) {
-            float sgn = normal.y > 0.f ? 1.f : -1.f;
-            rotate[0] = {1.f, 0.f, 0.f};
-            rotate[1] = {0.f, 0.f, sgn};
-            rotate[1] = {0.f, sgn, 0.f};
-        } else
-            rotate = glm::inverse(glm::mat3(glm::lookAt({0.f, 0.f, 0.f}, normal, {0.f, 1.f, 0.f})));
-        const glm::vec3 reflectedDir = glm::normalize(rotate * hemisphereRand());
+        glm::vec3 reflected;
+        float pdf;
+        const glm::vec3 brdf = material->sample_wi(reflected, viewer, normal, pdf);
+        if (pdf == 0.f)
+            return direct + emissedLight;
 
-        const float indrctCoeff = std::abs(glm::dot(normal, reflectedDir));
-        const glm::vec3 indirect = indrctCoeff * sendRay(cross + 0.0001f * normal, reflectedDir, k + 1);
+        const float cosine = std::abs(glm::dot(normal, reflected));
+        const glm::vec3 indirect = (brdf * cosine / pdf) * sendRay(cross + 0.0001f * normal, reflected, k + 1);
 
-        // right now there's just diffuse colour
-        return (direct + indirect) * color.diffuse;
+        // emissedLight is nonzero only on primary ray
+        return direct + indirect + emissedLight;
     }
     return scene.background;
 }
 
 bool RayTracer::intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &cross,
-                                   glm::vec3 &normal, Color &color) {
+                                   glm::vec3 &normal, BRDF *&brdf) {
     glm::vec2 baryPos;
     float distance;
     id_t triangle;
@@ -149,8 +134,7 @@ bool RayTracer::intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &dir
 
     normal = fst.Normal * baryPosz + snd.Normal * baryPos.x + trd.Normal * baryPos.y;
     cross = fst.Position * baryPosz + snd.Position * baryPos.x + trd.Position * baryPos.y;
-    color = kdtree.triangles[triangle].mat->getColorAt(fst.TexCoords * baryPosz + snd.TexCoords * baryPos.x +
-                                                       trd.TexCoords * baryPos.y);
+    brdf = kdtree.triangles[triangle].brdf.get();
     return true;
 }
 
@@ -161,13 +145,13 @@ void RayTracer::normalizeImage() { normalizeImage(maxVal); }
 void RayTracer::normalizeImage(float max) {
     if (max == 0.f)
         return;
-    float inversedMax = 1.f / sqrtf(max);
+    float inversedMax = 1.f / max;
     for (unsigned y = 0; y < scene.yres; y++) {
         for (unsigned x = 0; x < scene.xres; x++) {
             int i = 3 * ((scene.yres - y - 1) * scene.xres + x);
-            data[i++] = (uint8_t)(255.f * glm::clamp(sqrtf(pixels[y][x].r) * inversedMax, 0.f, 1.f));
-            data[i++] = (uint8_t)(255.f * glm::clamp(sqrtf(pixels[y][x].g) * inversedMax, 0.f, 1.f));
-            data[i++] = (uint8_t)(255.f * glm::clamp(sqrtf(pixels[y][x].b) * inversedMax, 0.f, 1.f));
+            data[i++] = (uint8_t)(255.f * glm::clamp((pixels[y][x].r) * inversedMax, 0.f, 1.f));
+            data[i++] = (uint8_t)(255.f * glm::clamp((pixels[y][x].g) * inversedMax, 0.f, 1.f));
+            data[i++] = (uint8_t)(255.f * glm::clamp((pixels[y][x].b) * inversedMax, 0.f, 1.f));
         }
     }
 }

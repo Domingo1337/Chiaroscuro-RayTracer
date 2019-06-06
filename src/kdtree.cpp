@@ -55,12 +55,14 @@ KDTree::KDTree(Model &model, Scene &scene)
             triangles[triangleId].snd = mesh.vertices[mesh.indices[i + 1]];
             triangles[triangleId].trd = mesh.vertices[mesh.indices[i + 2]];
             if (isLight) {
-                float surface =
-                    0.5f *
+                float invSurface = 2.f /
                     glm::length(glm::cross(triangles[triangleId].snd.Position - triangles[triangleId].fst.Position,
                                            triangles[triangleId].trd.Position - triangles[triangleId].fst.Position));
-                scene.lightTriangles.push_back(LightTriangle(triangleId, 1.f / surface));
-            }
+                scene.lightTriangles.push_back(LightTriangle(triangleId, invSurface));
+                triangles[triangleId].brdf =
+                    std::make_unique<Emissive>(mesh.materialColor.diffuse, mesh.materialColor.emissive * invSurface);
+            } else
+                triangles[triangleId].brdf = std::make_unique<Diffuse>(mesh.materialColor.diffuse);
             triangles[triangleId].mat = &mesh;
             for (unsigned k = i; k < i + 3; k++) {
                 for (unsigned j = 0; j < 3; j++) {

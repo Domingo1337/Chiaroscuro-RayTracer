@@ -1,6 +1,7 @@
 #ifndef KDTREE_H
 #define KDTREE_H
 #include "mesh.hpp"
+#include "material.hpp"
 
 #include <glm/glm.hpp>
 #include <memory>
@@ -11,14 +12,12 @@ class Mesh;
 class Scene;
 class Vertex;
 
-// so far material is just a mesh in disguise
-typedef  Mesh Material;
-
 struct Triangle {
     Vertex fst;
     Vertex snd;
     Vertex trd;
-    Material *mat;
+    Mesh * mat;
+    std::unique_ptr<BRDF> brdf;
 };
 
 class KDTree {
