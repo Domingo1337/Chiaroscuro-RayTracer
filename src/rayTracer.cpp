@@ -68,13 +68,14 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
     BRDF *material;
     if (intersectRayKDTree(origin, dir, cross, normal, material)) {
         // inverse direction
-        glm::vec3 viewer = glm::normalize(origin - cross);
+        const glm::vec3 wo = glm::normalize(origin - cross);
 
-        glm::vec3 emissedLight = (k > 1) ? glm::vec3(0.f) : material->radiance() * std::abs(glm::dot(viewer, normal));
+        // nonzero only when primary ray had hit the light surface
+        glm::vec3 direct = (k > 1) ? glm::vec3(0.f) : material->radiance() * std::max(0.f, glm::dot(wo, normal));
 
-        glm::vec3 direct(0.f, 0.f, 0.f);
+        // calculate direct light
+        for (auto &light : scene.lightTriangles) { // TODO: change this to random light instead
 
-        for (auto &light : scene.lightTriangles) {
             // choose random point on light triangle
             const float v0 = glm::linearRand(0.f, 1.f);
             const float v1 = glm::linearRand(0.f, 1.f - v0);
@@ -83,38 +84,29 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
                                          (1.f - v0 - v1) * lightTriangle.trd.Position;
 
             const float distance = glm::distance(cross, lightPoint);
-            const glm::vec3 lightdir = glm::normalize(lightPoint - cross);
+            const glm::vec3 wl = glm::normalize(lightPoint - cross);
 
-            if (!kdtree.intersectShadowRay(cross + (0.0001f * normal), lightdir, distance, light.id)) {
-                const glm::vec3 &lightNormal = lightTriangle.fst.Normal;
-                const float attentuation = (1.f / (1.f + distance * distance));
-
-                const float cosine = std::abs(glm::dot(normal, lightdir));
-                const float cosLight = std::abs(glm::dot(-lightdir, lightNormal));
-
-                float pdf;
-                const glm::vec3 brdf = material->known_wi(lightdir, viewer, normal, pdf);
-
-                if (pdf != 0.f)
-                    direct += 0.5f * lightTriangle.brdf->radiance() * attentuation * cosLight // incoming light
-                              * (brdf * cosine / pdf);                                        // surface color
+            if (!kdtree.intersectShadowRay(cross + (0.001f * normal), wl, distance, light.id)) {
+                const float geometric = std::max(0.f, glm::dot(normal, wl) * glm::dot(-wl, lightTriangle.fst.Normal) /
+                                                          (1.f + distance * distance));
+                direct += lightTriangle.brdf->radiance() * (geometric * light.invSurface) // incoming light
+                          * material->f(wl, wo, normal);                                  // surface color
             }
         }
-
         if (k == scene.k)
-            return direct + emissedLight;
+            return direct;
 
-        glm::vec3 reflected;
+        glm::vec3 wi;
         float pdf;
-        const glm::vec3 brdf = material->sample_wi(reflected, viewer, normal, pdf);
+        const glm::vec3 brdf = material->sample_wi(wi, wo, normal, pdf);
+
         if (pdf == 0.f)
-            return direct + emissedLight;
+            return direct;
 
-        const float cosine = std::abs(glm::dot(normal, reflected));
-        const glm::vec3 indirect = (brdf * cosine / pdf) * sendRay(cross + 0.0001f * normal, reflected, k + 1);
+        const float cosine = std::abs(glm::dot(normal, wi));
+        const glm::vec3 indirect = (brdf * cosine / pdf) * sendRay(cross + 0.001f * normal, wi, k + 1);
 
-        // emissedLight is nonzero only on primary ray
-        return direct + indirect + emissedLight;
+        return direct + indirect;
     }
     return scene.background;
 }

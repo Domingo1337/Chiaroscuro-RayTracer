@@ -60,7 +60,7 @@ KDTree::KDTree(Model &model, Scene &scene)
                                            triangles[triangleId].trd.Position - triangles[triangleId].fst.Position));
                 scene.lightTriangles.push_back(LightTriangle(triangleId, invSurface));
                 triangles[triangleId].brdf =
-                    std::make_unique<Emissive>(mesh.materialColor.diffuse, mesh.materialColor.emissive * invSurface);
+                    std::make_unique<Emissive>(mesh.materialColor.diffuse, mesh.materialColor.emissive);
             } else
                 triangles[triangleId].brdf = std::make_unique<Diffuse>(mesh.materialColor.diffuse);
             triangles[triangleId].mat = &mesh;
