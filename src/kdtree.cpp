@@ -55,15 +55,14 @@ KDTree::KDTree(Model &model, Scene &scene)
             triangles[triangleId].snd = mesh.vertices[mesh.indices[i + 1]];
             triangles[triangleId].trd = mesh.vertices[mesh.indices[i + 2]];
             if (isLight) {
-                float invSurface = 2.f /
+                float surface = 0.5f *
                     glm::length(glm::cross(triangles[triangleId].snd.Position - triangles[triangleId].fst.Position,
                                            triangles[triangleId].trd.Position - triangles[triangleId].fst.Position));
-                scene.lightTriangles.push_back(LightTriangle(triangleId, invSurface));
+                scene.lightTriangles.push_back(LightTriangle(triangleId, surface));
                 triangles[triangleId].brdf =
                     std::make_unique<Emissive>(mesh.materialColor.diffuse, mesh.materialColor.emissive);
             } else
                 triangles[triangleId].brdf = std::make_unique<Diffuse>(mesh.materialColor.diffuse);
-            triangles[triangleId].mat = &mesh;
             for (unsigned k = i; k < i + 3; k++) {
                 for (unsigned j = 0; j < 3; j++) {
                     minCoords[j] =
@@ -84,8 +83,8 @@ KDTree::KDTree(Model &model, Scene &scene)
     std::cerr << "Surface Lights in scene:";
     for (auto &light : scene.lightTriangles) {
         std::cerr << "\nTriangle {" << triangles[light.id].fst.Position << triangles[light.id].snd.Position
-                  << triangles[light.id].trd.Position << "} of color emissive "
-                  << triangles[light.id].mat->materialColor.emissive << " and surface " << 1.f / light.invSurface;
+                  << triangles[light.id].trd.Position << "} of radiance " << triangles[light.id].brdf->radiance()
+                  << " and surface " << light.surface;
     }
     std::cerr << (scene.lightTriangles.size() == 0 ? " None.\n" : "\n");
     std::cerr << "Point Lights in scene:";

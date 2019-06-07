@@ -41,6 +41,8 @@ void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
                     eye, leftUpper + (x + glm::linearRand(-0.5f, 0.5f)) * dx + (y + glm::linearRand(-0.5f, 0.5f)) * dy,
                     1);
 
+            pixels[y][x] /= float(scene.samples);
+
             maxVal = maxVal > pixels[y][x].r ? maxVal : pixels[y][x].r;
             maxVal = maxVal > pixels[y][x].g ? maxVal : pixels[y][x].g;
             maxVal = maxVal > pixels[y][x].b ? maxVal : pixels[y][x].b;
@@ -89,8 +91,8 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
             if (!kdtree.intersectShadowRay(cross + (0.001f * normal), wl, distance, light.id)) {
                 const float geometric = std::max(0.f, glm::dot(normal, wl) * glm::dot(-wl, lightTriangle.fst.Normal) /
                                                           (1.f + distance * distance));
-                direct += lightTriangle.brdf->radiance() * (geometric * light.invSurface) // incoming light
-                          * material->f(wl, wo, normal);                                  // surface color
+                direct += lightTriangle.brdf->radiance() * (geometric * light.surface) // incoming light
+                          * material->f(wl, wo, normal);                               // surface color
             }
         }
         if (k == scene.k)
@@ -150,23 +152,47 @@ void RayTracer::normalizeImage(float max) {
 
 void RayTracer::exportImage(const char *filename) {
     FreeImage_Initialise();
+    FREE_IMAGE_FORMAT format = FreeImage_GetFIFFromFilename(filename);
+    FIBITMAP *bitmap;
+    if (format == FIF_EXR) {
 
-    FIBITMAP *bitmap = FreeImage_Allocate(scene.xres, scene.yres, 24);
-    if (!bitmap) {
-        std::cerr << "FreeImage export failed.\n";
-        return FreeImage_DeInitialise();
-    }
+        bitmap = FreeImage_AllocateT(FIT_RGBF, scene.xres, scene.yres);
+        if (!bitmap) {
+            std::cerr << "FreeImage export failed.\n";
+            return FreeImage_DeInitialise();
+        }
 
-    RGBQUAD color;
-    for (unsigned y = 0, i = 0; y < scene.yres; y++) {
-        for (unsigned x = 0; x < scene.xres; x++) {
-            color.rgbRed = data[i++];
-            color.rgbGreen = data[i++];
-            color.rgbBlue = data[i++];
-            FreeImage_SetPixelColor(bitmap, x, y, &color);
+        unsigned offset = FreeImage_GetPitch(bitmap);
+        auto bits = FreeImage_GetBits(bitmap);
+
+        for (unsigned y = scene.yres; y-- > 0;) {
+            float *pixel = reinterpret_cast<float *>(bits);
+            for (unsigned x = 0; x < scene.xres; x++) {
+                *(pixel++) = pixels[y][x].r;
+                *(pixel++) = pixels[y][x].g;
+                *(pixel++) = pixels[y][x].b;
+            }
+            bits += offset;
+        }
+
+    } else {
+        bitmap = FreeImage_Allocate(scene.xres, scene.yres, 24);
+        if (!bitmap) {
+            std::cerr << "FreeImage export failed.\n";
+            return FreeImage_DeInitialise();
+        }
+        RGBQUAD color;
+        for (unsigned y = 0, i = 0; y < scene.yres; y++) {
+            for (unsigned x = 0; x < scene.xres; x++) {
+                color.rgbRed = data[i++];
+                color.rgbGreen = data[i++];
+                color.rgbBlue = data[i++];
+                FreeImage_SetPixelColor(bitmap, x, y, &color);
+            }
         }
     }
-    if (FreeImage_Save(FreeImage_GetFIFFromFilename(filename), bitmap, filename, 0))
+
+    if (FreeImage_Save(format, bitmap, filename, 0))
         std::cerr << "Render succesfully saved to file " << filename << "\n";
     else
         std::cerr << "FreeImage export failed.\n";

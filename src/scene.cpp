@@ -25,7 +25,7 @@ Scene::Scene(std::string filename) {
     this->usingOpenGLPreview = true;
     this->previewHeight = 900;
     this->kdtreeLeafSize = 8;
-    this->background = {0.1f, 0.1f, 0.1f};
+    this->background = {0.0f, 0.0f, 0.0f};
     this->samples = 100;
 
     std::ifstream input(filename);
@@ -63,4 +63,4 @@ Scene::Scene(std::string filename) {
 LightPoint::LightPoint(glm::vec3 _color, glm::vec3 _position, float _intensity)
     : color(_color), position(_position), intensity(_intensity) {}
 
-LightTriangle::LightTriangle(id_t _id, float _invSurface) : id(_id), invSurface(_invSurface){};
+LightTriangle::LightTriangle(id_t i, float s) : id(i), surface(s){};

@@ -16,9 +16,9 @@ struct LightPoint {
 };
 
 struct LightTriangle {
-    LightTriangle(id_t id, float invSurface);
+    LightTriangle(id_t id, float surface);
     id_t id;
-    float invSurface;
+    float surface;
 };
 
 class Scene {

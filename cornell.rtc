@@ -1,6 +1,6 @@
 # Test view scene: in OBJ format coords righthanded, CCW faces
 data/CornellBox-Original.obj
-renders/cornell_box.png
+renders/cornell_box.exr
 3
 300 300
 0.0 1.0 3.0
