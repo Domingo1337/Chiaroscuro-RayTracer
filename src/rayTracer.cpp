@@ -32,16 +32,15 @@ void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
 
     maxVal = 0.f;
 
-#pragma omp parallel for
+    float invSamples = 1.f / scene.samples;
     for (unsigned y = 0; y < scene.yres; y++) {
         for (unsigned x = 0; x < scene.xres; x++) {
             pixels[y][x] = {0.f, 0.f, 0.f};
             for (unsigned s = 0; s < scene.samples; s++)
                 pixels[y][x] += sendRay(
-                    eye, leftUpper + (x + glm::linearRand(-0.5f, 0.5f)) * dx + (y + glm::linearRand(-0.5f, 0.5f)) * dy,
-                    1);
+                    eye, leftUpper + (x + glm::linearRand(-.5f, .5f)) * dx + (y + glm::linearRand(-.5f, .5f)) * dy, 1);
 
-            pixels[y][x] /= float(scene.samples);
+            pixels[y][x] *= invSamples;
 
             maxVal = maxVal > pixels[y][x].r ? maxVal : pixels[y][x].r;
             maxVal = maxVal > pixels[y][x].g ? maxVal : pixels[y][x].g;
@@ -75,29 +74,30 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
         // nonzero only when primary ray had hit the light surface
         glm::vec3 direct = (k > 1) ? glm::vec3(0.f) : material->radiance() * std::max(0.f, glm::dot(wo, normal));
 
-        // calculate direct light
-        for (auto &light : scene.lightTriangles) { // TODO: change this to random light instead
+        // calculate direct lightning
+        // choose random point on surface lights
+        auto &light = scene.randomLight();
+        const float v0 = glm::linearRand(0.f, 1.f);
+        const float v1 = glm::linearRand(0.f, 1.f - v0);
+        const Triangle &lightSurface = kdtree.triangles[light.id];
+        const glm::vec3 lightPoint = v0 * lightSurface.fst.Position + v1 * lightSurface.snd.Position +
+                                     (1.f - v0 - v1) * lightSurface.trd.Position;
 
-            // choose random point on light triangle
-            const float v0 = glm::linearRand(0.f, 1.f);
-            const float v1 = glm::linearRand(0.f, 1.f - v0);
-            const Triangle &lightTriangle = kdtree.triangles[light.id];
-            const glm::vec3 lightPoint = v0 * lightTriangle.fst.Position + v1 * lightTriangle.snd.Position +
-                                         (1.f - v0 - v1) * lightTriangle.trd.Position;
+        const float distance = glm::distance(cross, lightPoint);
+        const glm::vec3 wl = glm::normalize(lightPoint - cross);
 
-            const float distance = glm::distance(cross, lightPoint);
-            const glm::vec3 wl = glm::normalize(lightPoint - cross);
+        if (!kdtree.intersectShadowRay(cross + (0.001f * normal), wl, distance, light.id)) {
+            const float geometric = std::max(0.f, glm::dot(normal, wl) * glm::dot(-wl, lightSurface.fst.Normal) /
+                                                      (1.f + distance * distance));
 
-            if (!kdtree.intersectShadowRay(cross + (0.001f * normal), wl, distance, light.id)) {
-                const float geometric = std::max(0.f, glm::dot(normal, wl) * glm::dot(-wl, lightTriangle.fst.Normal) /
-                                                          (1.f + distance * distance));
-                direct += lightTriangle.brdf->radiance() * (geometric * light.surface) // incoming light
-                          * material->f(wl, wo, normal);                               // surface color
-            }
+            direct += lightSurface.brdf->radiance() * (geometric * light.surface * scene.lightTriangles.size()) *
+                      material->f(wl, wo, normal);
         }
+
         if (k == scene.k)
             return direct;
 
+        // calculate indirect light
         glm::vec3 wi;
         float pdf;
         const glm::vec3 brdf = material->sample_wi(wi, wo, normal, pdf);
@@ -134,10 +134,13 @@ bool RayTracer::intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &dir
 
 uint8_t *RayTracer::getData() { return data.data(); }
 
-void RayTracer::normalizeImage() { normalizeImage(maxVal); }
+void RayTracer::normalizeImage() {
+    normalizeImage(maxVal);
+    maxVal = 1.f;
+}
 
 void RayTracer::normalizeImage(float max) {
-    if (max == 0.f)
+    if (max == 0.f || max == 1.f)
         return;
     float inversedMax = 1.f / max;
     for (unsigned y = 0; y < scene.yres; y++) {
@@ -154,8 +157,7 @@ void RayTracer::exportImage(const char *filename) {
     FreeImage_Initialise();
     FREE_IMAGE_FORMAT format = FreeImage_GetFIFFromFilename(filename);
     FIBITMAP *bitmap;
-    if (format == FIF_EXR) {
-
+    if (format == FIF_EXR || format == FIF_HDR) {
         bitmap = FreeImage_AllocateT(FIT_RGBF, scene.xres, scene.yres);
         if (!bitmap) {
             std::cerr << "FreeImage export failed.\n";
@@ -176,6 +178,7 @@ void RayTracer::exportImage(const char *filename) {
         }
 
     } else {
+        normalizeImage();
         bitmap = FreeImage_Allocate(scene.xres, scene.yres, 24);
         if (!bitmap) {
             std::cerr << "FreeImage export failed.\n";

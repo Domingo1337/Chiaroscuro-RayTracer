@@ -20,7 +20,6 @@ int main(int argc, char **argv) {
         preview.loop();
     } else {
         renderer.rayTrace(scene.VP, scene.LA, scene.UP, scene.yview);
-        renderer.normalizeImage();
     }
 
     renderer.exportImage(scene.renderPath.c_str());

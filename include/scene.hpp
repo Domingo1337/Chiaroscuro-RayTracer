@@ -47,6 +47,9 @@ class Scene {
     unsigned int samples;
 
     std::vector<LightTriangle> lightTriangles;
+
+    // chosen by uniform distribution, pdf is 1 / lightTriangles.size()
+    const LightTriangle &randomLight();
 };
 
 #endif

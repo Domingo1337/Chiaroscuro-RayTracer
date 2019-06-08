@@ -1,6 +1,7 @@
 #include "scene.hpp"
 
 #include "glm/gtc/random.hpp"
+#include <random>
 
 #include <cstring>
 #include <fstream>
@@ -64,3 +65,10 @@ LightPoint::LightPoint(glm::vec3 _color, glm::vec3 _position, float _intensity)
     : color(_color), position(_position), intensity(_intensity) {}
 
 LightTriangle::LightTriangle(id_t i, float s) : id(i), surface(s){};
+
+const LightTriangle &Scene::randomLight() {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    std::uniform_int_distribution<> distribution(0, lightTriangles.size() - 1);
+    return lightTriangles[distribution(gen)];
+}
