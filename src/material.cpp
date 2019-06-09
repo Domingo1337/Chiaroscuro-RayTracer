@@ -1,6 +1,7 @@
 /* Based off http://www.cse.chalmers.se/edu/year/2018/course/TDA362/tutorials/pathtracer.html */
 
 #include "material.hpp"
+#include "prng.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/random.hpp>
@@ -29,8 +30,8 @@ glm::vec3 hemisphereRandom(glm::vec3 normal, float shininess = 1.f) {
     } else
         rotate = glm::inverse(glm::mat3(glm::lookAt({0.f, 0.f, 0.f}, normal, {0.f, 1.f, 0.f})));
 
-    const float theta = acosf(powf(glm::linearRand(0.f, 1.f), 1.f / (1.f + shininess)));
-    const float phi = M_PI * glm::linearRand(0.f, 2.f);
+    const float theta = acosf(powf(PRNG::uniformFloat(0.f, 1.f), 1.f / (1.f + shininess)));
+    const float phi = M_PI * PRNG::uniformFloat(0.f, 2.f);
 
     const float x = sin(theta) * cos(phi);
     const float y = sin(theta) * sin(phi);

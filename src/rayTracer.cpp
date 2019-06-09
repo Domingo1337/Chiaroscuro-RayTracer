@@ -1,5 +1,6 @@
 #include "rayTracer.hpp"
 #include "material.hpp"
+#include "prng.hpp"
 
 #include <FreeImage.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -28,17 +29,20 @@ void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
     auto rotate = glm::inverse(glm::mat3(glm::lookAt(eye, center, up)));
     const glm::vec3 dy = (1.f / scene.yres) * rotate * glm::vec3(0.f, -2.f * y, 0.f);
     const glm::vec3 dx = (1.f / scene.xres) * rotate * glm::vec3(2.f * x, 0.f, 0.f);
-    const glm::vec3 leftUpper = rotate * glm::vec3(-x, y, -z) + 0.5f * (dx + dy);
+    const glm::vec3 leftUpper = rotate * glm::vec3(-x, y, -z);
 
     maxVal = 0.f;
+    const float invSamples = 1.f / scene.samples;
 
-    float invSamples = 1.f / scene.samples;
+    PRNG::setSeed();
+#pragma omp parallel for
     for (unsigned y = 0; y < scene.yres; y++) {
         for (unsigned x = 0; x < scene.xres; x++) {
             pixels[y][x] = {0.f, 0.f, 0.f};
             for (unsigned s = 0; s < scene.samples; s++)
                 pixels[y][x] += sendRay(
-                    eye, leftUpper + (x + glm::linearRand(-.5f, .5f)) * dx + (y + glm::linearRand(-.5f, .5f)) * dy, 1);
+                    eye, leftUpper + (x + PRNG::uniformFloat(0.f, 1.f)) * dx + (y + PRNG::uniformFloat(0.f, 1.f)) * dy,
+                    1);
 
             pixels[y][x] *= invSamples;
 
@@ -50,17 +54,6 @@ void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
 
     auto finishedTime = std::chrono::high_resolution_clock::now();
     std::cerr << "took " << (finishedTime - beginTime).count() * 0.000000001f << " seconds.\n";
-}
-
-// generate random point on hemisphere defined by normal with Phong exponent's shininess
-// based off https://blog.thomaspoulet.fr/uniform-sampling-on-unit-hemisphere/
-glm::vec3 hemisphereRand(float shininess = 1.f) {
-    const float theta = acosf(powf(glm::linearRand(0.f, 1.f), 1.f / (1.f + shininess)));
-    const float phi = M_PI * glm::linearRand(0.f, 2.f);
-
-    const float x = sin(theta) * cos(phi);
-    const float y = sin(theta) * sin(phi);
-    return glm::vec3(x, y, -glm::sqrt(1.f - x * x - y * y));
 }
 
 glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const int k) {
@@ -77,8 +70,8 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
         // calculate direct lightning
         // choose random point on surface lights
         auto &light = scene.randomLight();
-        const float v0 = glm::linearRand(0.f, 1.f);
-        const float v1 = glm::linearRand(0.f, 1.f - v0);
+        const float v0 = PRNG::uniformFloat(0.f, 1.f);
+        const float v1 = PRNG::uniformFloat(0.f, 1.f - v0);
         const Triangle &lightSurface = kdtree.triangles[light.id];
         const glm::vec3 lightPoint = v0 * lightSurface.fst.Position + v1 * lightSurface.snd.Position +
                                      (1.f - v0 - v1) * lightSurface.trd.Position;

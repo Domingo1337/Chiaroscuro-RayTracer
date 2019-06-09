@@ -10,8 +10,8 @@ default: main
 .cpp.o:
 	${CXX} -c ${CFLAGS} $<
 
-main: main.o glad.o scene.o mesh.o model.o openglPreview.o camera.o rayTracer.o shader.o kdtree.o material.o
-	${CXX} -Wall -Wextra main.o glad.o mesh.o scene.o model.o openglPreview.o camera.o rayTracer.o shader.o kdtree.o material.o -o main ${COMMON} ${LIBS}
+main: main.o glad.o scene.o mesh.o model.o openglPreview.o camera.o rayTracer.o shader.o kdtree.o material.o prng.o
+	${CXX} -Wall -Wextra main.o glad.o mesh.o scene.o model.o openglPreview.o camera.o rayTracer.o shader.o kdtree.o material.o prng.o -o main ${COMMON} ${LIBS}
 
 main.o: main.cpp
 	${CXX} ${CFLAGS} -c main.cpp -o main.o   ${COMMON} ${LIBS}
@@ -46,6 +46,9 @@ kdtree.o: src/kdtree.cpp
 
 material.o: src/material.cpp
 	${CXX} ${CFLAGS} -Wno-unused-parameter -c src/material.cpp -o material.o  ${COMMON} ${LIBS}
+
+prng.o: src/prng.cpp
+	${CXX} ${CFLAGS} -c src/prng.cpp -o prng.o  ${COMMON} ${LIBS}
 
 clean:
 	rm -f main *.o

@@ -1,4 +1,6 @@
 #include "scene.hpp"
+#include "prng.hpp"
+#include <omp.h>
 
 #include "glm/gtc/random.hpp"
 #include <random>
@@ -67,8 +69,6 @@ LightPoint::LightPoint(glm::vec3 _color, glm::vec3 _position, float _intensity)
 LightTriangle::LightTriangle(id_t i, float s) : id(i), surface(s){};
 
 const LightTriangle &Scene::randomLight() {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    std::uniform_int_distribution<> distribution(0, lightTriangles.size() - 1);
-    return lightTriangles[distribution(gen)];
+    return lightTriangles[std::uniform_int_distribution<>(0,
+                                                          lightTriangles.size() - 1)(PRNG::rng[omp_get_thread_num()])];
 }
