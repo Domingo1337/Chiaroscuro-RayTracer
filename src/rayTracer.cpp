@@ -69,22 +69,25 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
 
         // calculate direct lightning
         // choose random point on surface lights
-        auto &light = scene.randomLight();
-        const float v0 = PRNG::uniformFloat(0.f, 1.f);
-        const float v1 = PRNG::uniformFloat(0.f, 1.f - v0);
-        const Triangle &lightSurface = kdtree.triangles[light.id];
-        const glm::vec3 lightPoint = v0 * lightSurface.fst.Position + v1 * lightSurface.snd.Position +
-                                     (1.f - v0 - v1) * lightSurface.trd.Position;
+        if (scene.lightTriangles.size()) {
+            auto &light = scene.randomLight();
+            const float v0 = PRNG::uniformFloat(0.f, 1.f);
+            const float v1 = PRNG::uniformFloat(0.f, 1.f - v0);
 
-        const float distance = glm::distance(cross, lightPoint);
-        const glm::vec3 wl = glm::normalize(lightPoint - cross);
+            const Triangle &lightSurface = kdtree.triangles[light.id];
+            const glm::vec3 lightPoint = v0 * lightSurface.fst.Position + v1 * lightSurface.snd.Position +
+                                         (1.f - v0 - v1) * lightSurface.trd.Position;
 
-        if (!kdtree.intersectShadowRay(cross + (0.001f * normal), wl, distance, light.id)) {
-            const float geometric = std::max(0.f, glm::dot(normal, wl) * glm::dot(-wl, lightSurface.fst.Normal) /
-                                                      (1.f + distance * distance));
+            const float distance = glm::distance(cross, lightPoint);
+            const glm::vec3 wl = glm::normalize(lightPoint - cross);
 
-            direct += lightSurface.brdf->radiance() * (geometric * light.surface * scene.lightTriangles.size()) *
-                      material->f(wl, wo, normal);
+            if (!kdtree.intersectShadowRay(cross + (0.001f * normal), wl, distance, light.id)) {
+                const float geometric = std::max(0.f, glm::dot(normal, wl) * glm::dot(-wl, lightSurface.fst.Normal) /
+                                                          (1.f + distance * distance));
+
+                direct += lightSurface.brdf->radiance() * (geometric * light.surface * scene.lightTriangles.size()) *
+                          material->f(wl, wo, normal);
+            }
         }
 
         if (k == scene.k)
