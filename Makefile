@@ -10,45 +10,45 @@ default: main
 .cpp.o:
 	${CXX} -c ${CFLAGS} $<
 
-main: main.o glad.o scene.o mesh.o model.o openglPreview.o camera.o rayTracer.o shader.o kdtree.o material.o prng.o
-	${CXX} -Wall -Wextra main.o glad.o mesh.o scene.o model.o openglPreview.o camera.o rayTracer.o shader.o kdtree.o material.o prng.o -o main ${COMMON} ${LIBS}
+main: main.o glad.o scene.o mesh.o model.o openglPreview.o camera.o rayTracer.o shader.o kdtree.o brdf.o prng.o
+	${CXX} -Wall -Wextra main.o glad.o mesh.o scene.o model.o openglPreview.o camera.o rayTracer.o shader.o kdtree.o brdf.o prng.o -o main ${LIBS}
 
 main.o: main.cpp
-	${CXX} ${CFLAGS} -c main.cpp -o main.o   ${COMMON} ${LIBS}
+	${CXX} ${CFLAGS} -c main.cpp -o main.o  ${LIBS}
 
 glad.o: src/glad.c
-	${CXX} ${CFLAGS} -c src/glad.c -o glad.o  ${COMMON} ${LIBS}
+	${CXX} ${CFLAGS} -c src/glad.c -o glad.o ${LIBS}
 
 
 scene.o: src/scene.cpp
-	${CXX} ${CFLAGS} -c src/scene.cpp -o scene.o  ${COMMON} ${LIBS}
+	${CXX} ${CFLAGS} -c src/scene.cpp -o scene.o ${LIBS}
 
 mesh.o: src/mesh.cpp
-	${CXX} ${CFLAGS} -c src/mesh.cpp -o mesh.o  ${COMMON} ${LIBS}
+	${CXX} ${CFLAGS} -c src/mesh.cpp -o mesh.o ${LIBS}
 
 model.o: src/model.cpp
-	${CXX} ${CFLAGS} -Wno-implicit-fallthrough -c src/model.cpp -o model.o  ${COMMON} ${LIBS}
+	${CXX} ${CFLAGS} -Wno-implicit-fallthrough -c src/model.cpp -o model.o ${LIBS}
 
 openglPreview.o: src/openglPreview.cpp
-	${CXX} ${CFLAGS} -Wno-unused-parameter -c src/openglPreview.cpp -o openglPreview.o  ${COMMON} ${LIBS}
+	${CXX} ${CFLAGS} -Wno-unused-parameter -c src/openglPreview.cpp -o openglPreview.o ${LIBS}
 
 camera.o: src/camera.cpp
-	${CXX} ${CFLAGS} -c src/camera.cpp -o camera.o  ${COMMON} ${LIBS}
+	${CXX} ${CFLAGS} -c src/camera.cpp -o camera.o ${LIBS}
 
 rayTracer.o: src/rayTracer.cpp
-	${CXX} ${CFLAGS} -c src/rayTracer.cpp -o rayTracer.o  ${COMMON} ${LIBS}
+	${CXX} ${CFLAGS} -c src/rayTracer.cpp -o rayTracer.o ${LIBS}
 
 shader.o: src/shader.cpp
-	${CXX} ${CFLAGS} -c src/shader.cpp -o shader.o  ${COMMON} ${LIBS}
+	${CXX} ${CFLAGS} -c src/shader.cpp -o shader.o ${LIBS}
 
 kdtree.o: src/kdtree.cpp
-	${CXX} ${CFLAGS} -c src/kdtree.cpp -o kdtree.o  ${COMMON} ${LIBS}
+	${CXX} ${CFLAGS} -c src/kdtree.cpp -o kdtree.o ${LIBS}
 
-material.o: src/material.cpp
-	${CXX} ${CFLAGS} -Wno-unused-parameter -c src/material.cpp -o material.o  ${COMMON} ${LIBS}
+brdf.o: src/brdf.cpp
+	${CXX} ${CFLAGS} -Wno-unused-parameter -c src/brdf.cpp -o brdf.o ${LIBS}
 
 prng.o: src/prng.cpp
-	${CXX} ${CFLAGS} -c src/prng.cpp -o prng.o  ${COMMON} ${LIBS}
+	${CXX} ${CFLAGS} -c src/prng.cpp -o prng.o ${LIBS}
 
 clean:
 	rm -f main *.o

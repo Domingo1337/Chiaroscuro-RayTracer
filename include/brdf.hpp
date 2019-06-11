@@ -4,6 +4,9 @@
 
 #include <glm/glm.hpp>
 
+// Enum for helping with dynamic allocation of BRDF materials
+enum class BRDFT { Diffuse, Emissive };
+
 // The interface for any BRDF.
 class BRDF {
   public:
@@ -15,6 +18,8 @@ class BRDF {
     virtual glm::vec3 sample_wi(glm::vec3 &wi, const glm::vec3 &wo, const glm::vec3 &n, float &pdf) = 0;
 
     virtual glm::vec3 radiance();
+
+    virtual ~BRDF();
 };
 
 // A Lambertian (diffuse) material
@@ -24,6 +29,8 @@ class Diffuse : public BRDF {
     Diffuse(glm::vec3 c) : color(c) {}
     virtual glm::vec3 f(const glm::vec3 &wi, const glm::vec3 &wo, const glm::vec3 &n) override;
     virtual glm::vec3 sample_wi(glm::vec3 &wi, const glm::vec3 &wo, const glm::vec3 &n, float &pdf) override;
+
+    virtual ~Diffuse();
 };
 
 // Emissive material
@@ -32,4 +39,5 @@ class Emissive : public Diffuse {
     glm::vec3 radianceColor;
     Emissive(glm::vec3 c, glm::vec3 r) : Diffuse(c), radianceColor(r) {}
     virtual glm::vec3 radiance() override;
+    virtual ~Emissive();
 };

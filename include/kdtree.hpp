@@ -1,7 +1,7 @@
 #ifndef KDTREE_H
 #define KDTREE_H
+#include "brdf.hpp"
 #include "mesh.hpp"
-#include "material.hpp"
 
 #include <glm/glm.hpp>
 #include <memory>
@@ -13,11 +13,23 @@ class Scene;
 class Vertex;
 
 struct Triangle {
-    Vertex fst;
-    Vertex snd;
-    Vertex trd;
-    Mesh * mat;
-    std::unique_ptr<BRDF> brdf;
+    // world coordinates
+    const glm::vec3 posFst, posSnd, posTrd;
+};
+
+struct Material {
+    const BRDFT BRDFtype;
+    const glm::vec3 normal;
+
+    // colours
+    const glm::vec3 Kd;
+    const glm::vec3 Ke;
+
+    // // textures
+    // const Texture *texDiffuse;
+
+    // // texture coords
+    // const glm::vec2 texFst, texSnd, texTrd;
 };
 
 class KDTree {
@@ -29,6 +41,7 @@ class KDTree {
     bool intersectShadowRay(const glm::vec3 &origin, const glm::vec3 &dir, const float distance,
                             const id_t lightTriangle);
     std::vector<Triangle> triangles;
+    std::vector<Material> materials;
     glm::vec3 minCoords;
     glm::vec3 maxCoords;
     struct KDNode {

@@ -1,6 +1,6 @@
 /* Based off http://www.cse.chalmers.se/edu/year/2018/course/TDA362/tutorials/pathtracer.html */
 
-#include "material.hpp"
+#include "brdf.hpp"
 #include "prng.hpp"
 
 #include <glm/glm.hpp>
@@ -41,6 +41,8 @@ glm::vec3 hemisphereRandom(glm::vec3 normal, float shininess = 1.f) {
 // Generic BRDF
 glm::vec3 BRDF::radiance() { return glm::vec3(0.f); };
 
+BRDF::~BRDF(){};
+
 // A Lambertian (diffuse) material
 glm::vec3 Diffuse::f(const glm::vec3 &wi, const glm::vec3 &wo, const glm::vec3 &n) { return float(M_1_PI) * color; }
 
@@ -51,5 +53,9 @@ glm::vec3 Diffuse::sample_wi(glm::vec3 &wi, const glm::vec3 &wo, const glm::vec3
     return f(wi, wo, n);
 }
 
+Diffuse::~Diffuse(){};
+
 // Emissive material
 glm::vec3 Emissive::radiance() { return radianceColor; }
+
+Emissive::~Emissive(){};

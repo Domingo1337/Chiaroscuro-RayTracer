@@ -1,5 +1,4 @@
 #include "rayTracer.hpp"
-#include "material.hpp"
 #include "prng.hpp"
 
 #include <FreeImage.h>
@@ -57,12 +56,12 @@ void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
 }
 
 glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const int k) {
-    glm::vec3 cross;
+    glm::vec3 intersection;
     glm::vec3 normal;
     BRDF *material;
-    if (intersectRayKDTree(origin, dir, cross, normal, material)) {
+    if (intersectRayKDTree(origin, dir, intersection, normal, material)) {
         // inverse direction
-        const glm::vec3 wo = glm::normalize(origin - cross);
+        const glm::vec3 wo = glm::normalize(origin - intersection);
 
         // nonzero only when primary ray had hit the light surface
         glm::vec3 direct = (k > 1) ? glm::vec3(0.f) : material->radiance() * std::max(0.f, glm::dot(wo, normal));
@@ -70,61 +69,74 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
         // calculate direct lightning
         // choose random point on surface lights
         if (scene.lightTriangles.size()) {
-            auto &light = scene.randomLight();
             const float v0 = PRNG::uniformFloat(0.f, 1.f);
             const float v1 = PRNG::uniformFloat(0.f, 1.f - v0);
 
+            auto &light = scene.randomLight();
             const Triangle &lightSurface = kdtree.triangles[light.id];
-            const glm::vec3 lightPoint = v0 * lightSurface.fst.Position + v1 * lightSurface.snd.Position +
-                                         (1.f - v0 - v1) * lightSurface.trd.Position;
+            const Material &lightMat = kdtree.materials[light.id];
+            const glm::vec3 lightPoint =
+                v0 * lightSurface.posFst + v1 * lightSurface.posSnd + (1.f - v0 - v1) * lightSurface.posTrd;
 
-            const float distance = glm::distance(cross, lightPoint);
-            const glm::vec3 wl = glm::normalize(lightPoint - cross);
+            const float distance = glm::distance(intersection, lightPoint);
+            const glm::vec3 wl = glm::normalize(lightPoint - intersection);
 
-            if (!kdtree.intersectShadowRay(cross + (0.001f * normal), wl, distance, light.id)) {
-                const float geometric = std::max(0.f, glm::dot(normal, wl) * glm::dot(-wl, lightSurface.fst.Normal) /
-                                                          (1.f + distance * distance));
+            if (!kdtree.intersectShadowRay(intersection + (0.001f * normal), wl, distance, light.id)) {
+                const float geometric =
+                    std::max(0.f, glm::dot(normal, wl) * glm::dot(-wl, lightMat.normal) / (1.f + distance * distance));
 
-                direct += lightSurface.brdf->radiance() * (geometric * light.surface * scene.lightTriangles.size()) *
+                direct += lightMat.Ke * (geometric * light.surface * scene.lightTriangles.size()) *
                           material->f(wl, wo, normal);
             }
         }
 
-        if (k == scene.k)
+        if (k == scene.k) {
+            delete material;
             return direct;
+        }
 
         // calculate indirect light
         glm::vec3 wi;
         float pdf;
         const glm::vec3 brdf = material->sample_wi(wi, wo, normal, pdf);
+        delete material;
 
         if (pdf == 0.f)
             return direct;
 
         const float cosine = std::abs(glm::dot(normal, wi));
-        const glm::vec3 indirect = (brdf * cosine / pdf) * sendRay(cross + 0.001f * normal, wi, k + 1);
+        const glm::vec3 indirect = (brdf * cosine / pdf) * sendRay(intersection + 0.001f * normal, wi, k + 1);
 
         return direct + indirect;
     }
     return scene.background;
 }
 
-bool RayTracer::intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &cross,
+bool RayTracer::intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &intersection,
                                    glm::vec3 &normal, BRDF *&brdf) {
     glm::vec2 baryPos;
     float distance;
-    id_t triangle;
-    if (!kdtree.intersectRay(origin, direction, triangle, baryPos, distance))
+    id_t triangleID;
+    if (!kdtree.intersectRay(origin, direction, triangleID, baryPos, distance))
         return false;
 
-    Vertex &fst = kdtree.triangles[triangle].fst;
-    Vertex &snd = kdtree.triangles[triangle].snd;
-    Vertex &trd = kdtree.triangles[triangle].trd;
-    float baryPosz = (1.f - baryPos.x - baryPos.y);
+    const Triangle &triangle = kdtree.triangles[triangleID];
+    const Material &material = kdtree.materials[triangleID];
 
-    normal = fst.Normal * baryPosz + snd.Normal * baryPos.x + trd.Normal * baryPos.y;
-    cross = fst.Position * baryPosz + snd.Position * baryPos.x + trd.Position * baryPos.y;
-    brdf = kdtree.triangles[triangle].brdf.get();
+    normal = material.normal;
+
+    const float baryPosz = (1.f - baryPos.x - baryPos.y);
+    intersection = triangle.posFst * baryPosz + triangle.posSnd * baryPos.x + triangle.posTrd * baryPos.y;
+
+    switch (material.BRDFtype) {
+    case BRDFT::Diffuse:
+        brdf = new Diffuse(material.Kd);
+        break;
+    case BRDFT::Emissive:
+        brdf = new Emissive(material.Kd, material.Ke);
+        break;
+    }
+
     return true;
 }
 
