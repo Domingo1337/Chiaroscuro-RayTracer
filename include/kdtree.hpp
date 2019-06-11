@@ -25,11 +25,11 @@ struct Material {
     const glm::vec3 Kd;
     const glm::vec3 Ke;
 
-    // // textures
-    // const Texture *texDiffuse;
+    // textures
+    Texture *texDiffuse;
 
-    // // texture coords
-    // const glm::vec2 texFst, texSnd, texTrd;
+    // texture coords
+    const glm::vec2 texFst, texSnd, texTrd;
 };
 
 class KDTree {

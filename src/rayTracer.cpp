@@ -128,12 +128,18 @@ bool RayTracer::intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &dir
     const float baryPosz = (1.f - baryPos.x - baryPos.y);
     intersection = triangle.posFst * baryPosz + triangle.posSnd * baryPos.x + triangle.posTrd * baryPos.y;
 
+    const glm::vec3 Kd =
+        material.texDiffuse && material.texDiffuse->image
+            ? material.texDiffuse->getColorAt(material.texFst * baryPosz + material.texSnd * baryPos.x +
+                                              material.texTrd * baryPos.y)
+            : material.Kd;
+
     switch (material.BRDFtype) {
     case BRDFT::Diffuse:
-        brdf = new Diffuse(material.Kd);
+        brdf = new Diffuse(Kd);
         break;
     case BRDFT::Emissive:
-        brdf = new Emissive(material.Kd, material.Ke);
+        brdf = new Emissive(Kd, material.Ke);
         break;
     }
 
@@ -142,6 +148,7 @@ bool RayTracer::intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &dir
 
 uint8_t *RayTracer::getData() { return data.data(); }
 
+// currently map linearly pixels to float[0,1] and then to byte[0,255]
 void RayTracer::normalizeImage() {
     normalizeImage(maxVal);
     maxVal = 1.f;
@@ -165,7 +172,9 @@ void RayTracer::exportImage(const char *filename) {
     FreeImage_Initialise();
     FREE_IMAGE_FORMAT format = FreeImage_GetFIFFromFilename(filename);
     FIBITMAP *bitmap;
+
     if (format == FIF_EXR || format == FIF_HDR) {
+        // export in high dynamic range
         bitmap = FreeImage_AllocateT(FIT_RGBF, scene.xres, scene.yres);
         if (!bitmap) {
             std::cerr << "FreeImage export failed.\n";
@@ -186,6 +195,7 @@ void RayTracer::exportImage(const char *filename) {
         }
 
     } else {
+        // export to normal image, so apply some kind of transformation
         normalizeImage();
         bitmap = FreeImage_Allocate(scene.xres, scene.yres, 24);
         if (!bitmap) {

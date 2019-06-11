@@ -18,6 +18,22 @@ Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std:
 
 bool Mesh::hasTexture() { return textureNormal || textureHeight || textureDiffuse || textureSpecular; }
 
+glm::vec3 Texture::getColorAt(glm::vec2 coords) {
+    // assuming the texture is reapeated
+    while (coords.x > 1.f) coords.x -= 1.f;
+    while (coords.x < 0.f) coords.x += 1.f;
+    while (coords.y > 1.f) coords.y -= 1.f;
+    while (coords.y < 0.f) coords.y += 1.f;
+
+    const int x = coords.x * width;
+    const int y = coords.y * height;
+    unsigned char *pixel = &image[(y * width + x) * nrComponents];
+
+    // 1/255 = 0.00392156862f
+    return glm::vec3(float((*pixel)) * 0.00392156862f, float(*(pixel + 1)) * 0.00392156862f,
+                     float(*(pixel + 2)) * 0.00392156862f);
+}
+
 Color Mesh::getColorAt(glm::vec2 coords) {
     Color color = this->materialColor;
 
@@ -134,4 +150,4 @@ Color::Color()
     : ambient(0.f, 0.f, 0.f), diffuse(0.f, 0.f, 0.f), specular(0.f, 0.f, 0.f), emissive(0.f, 0.f, 0.f), shininess(1){};
 
 Color::Color(glm::vec3 ambi, glm::vec3 diff, glm::vec3 spec, glm::vec3 emis, float shin)
-    : ambient(ambi), diffuse(diff), specular(spec), shininess(shin), emissive(emis){};
+    : ambient(ambi), diffuse(diff), specular(spec), emissive(emis), shininess(shin){};

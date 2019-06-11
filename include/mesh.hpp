@@ -25,6 +25,7 @@ struct Texture {
     int width;
     int height;
     int nrComponents;
+    glm::vec3 getColorAt(glm::vec2 coords);
 };
 
 struct Color {

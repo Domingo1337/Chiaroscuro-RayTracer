@@ -63,11 +63,11 @@ KDTree::KDTree(Model &model, Scene &scene)
                 .Kd = mesh.materialColor.diffuse,
                 .Ke = mesh.materialColor.emissive,
 
-                // .texDiffuse = mesh.textureDiffuse,
+                .texDiffuse = mesh.textureDiffuse,
 
-                // .texFst = mesh.vertices[mesh.indices[i + 0]].TexCoords,
-                // .texSnd = mesh.vertices[mesh.indices[i + 1]].TexCoords,
-                // .texTrd = mesh.vertices[mesh.indices[i + 2]].TexCoords,
+                .texFst = mesh.vertices[mesh.indices[i + 0]].TexCoords,
+                .texSnd = mesh.vertices[mesh.indices[i + 1]].TexCoords,
+                .texTrd = mesh.vertices[mesh.indices[i + 2]].TexCoords,
             });
 
             if (isLight) {
