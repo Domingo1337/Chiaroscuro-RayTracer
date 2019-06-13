@@ -69,12 +69,14 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
         // calculate direct lightning
         // choose random point on surface lights
         if (scene.lightTriangles.size()) {
-            const float v0 = PRNG::uniformFloat(0.f, 1.f);
-            const float v1 = PRNG::uniformFloat(0.f, 1.f - v0);
 
             auto &light = scene.randomLight();
             const Triangle &lightSurface = kdtree.triangles[light.id];
             const Material &lightMat = kdtree.materials[light.id];
+
+            // uniform barycentric coordinates
+            const float v0 = PRNG::uniformFloat(0.f, 1.f);
+            const float v1 = PRNG::uniformFloat(0.f, 1.f - v0);
             const glm::vec3 lightPoint =
                 v0 * lightSurface.posFst + v1 * lightSurface.posSnd + (1.f - v0 - v1) * lightSurface.posTrd;
 
@@ -98,14 +100,16 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
         // calculate indirect light
         glm::vec3 wi;
         float pdf;
-        const glm::vec3 brdf = material->sample_wi(wi, wo, normal, pdf);
+        const glm::vec3 f = material->sample_wi(wi, wo, normal, pdf);
         delete material;
 
-        if (pdf == 0.f)
+        // Roussian roulette termination
+        const float Kmax = std::max(f.r, std::max(f.g, f.b));
+        if (pdf == 0.f || PRNG::uniformFloat(0.f, 1.f) > Kmax)
             return direct;
 
         const float cosine = std::abs(glm::dot(normal, wi));
-        const glm::vec3 indirect = (brdf * cosine / pdf) * sendRay(intersection + 0.001f * normal, wi, k + 1);
+        const glm::vec3 indirect = (f * cosine / (pdf * Kmax)) * sendRay(intersection + 0.001f * normal, wi, k + 1);
 
         return direct + indirect;
     }

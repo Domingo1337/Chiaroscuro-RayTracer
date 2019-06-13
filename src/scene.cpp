@@ -28,7 +28,7 @@ Scene::Scene(std::string filename) {
     this->usingOpenGLPreview = true;
     this->previewHeight = 900;
     this->kdtreeLeafSize = 8;
-    this->background = {0.0f, 0.0f, 0.0f};
+    this->background = glm::vec3(0.f);
     this->samples = 100;
 
     std::ifstream input(filename);

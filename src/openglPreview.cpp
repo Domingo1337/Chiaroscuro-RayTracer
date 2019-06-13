@@ -80,11 +80,11 @@ void OpenGLPreview::loop() {
             shaderMaterial.setMat4("projection", projection);
 
             // care only about first light, it's just a preview
-            shaderMaterial.setVec3("light.position", scene->lightPoints[0].position);
+            shaderMaterial.setVec3("light.position",
+                                   scene->lightPoints.size() ? scene->lightPoints[0].position : scene->VP);
             shaderMaterial.setVec3("viewPos", camera.Position);
-            shaderMaterial.setVec3("light.ambient", scene->lightPoints[0].color);
-            shaderMaterial.setVec3("light.diffuse", scene->lightPoints[0].color);
-            shaderMaterial.setVec3("light.specular", scene->lightPoints[0].color);
+            shaderMaterial.setVec3("light.color",
+                                   scene->lightPoints.size() ? scene->lightPoints[0].color : glm::vec3(1.f));
 
             model->Draw(shaderTextured, shaderMaterial);
         }

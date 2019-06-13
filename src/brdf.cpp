@@ -14,28 +14,51 @@ glm::vec3 perpendicular(const glm::vec3 &v) {
     return glm::vec3(-v.z, 0.0f, v.x);
 }
 
-// generate random point on hemisphere defined by normal with Phong exponent's shininess
-// based off https://blog.thomaspoulet.fr/uniform-sampling-on-unit-hemisphere/
-glm::vec3 hemisphereRandom(glm::vec3 normal, float shininess = 1.f) {
+// Generate uniform points on a disc
+void concentricSampleDisk(float *dx, float *dy) {
+    // Uniform random point on square [-1,1]x[-1,1]
+    const float sx = PRNG::uniformFloat(-1.f, 1.f);
+    const float sy = PRNG::uniformFloat(-1.f, 1.f);
 
-    // calculate reflected ray:
-    // rotation to normal matrix
-    glm::mat3 rotate;
-    // if normal is the same as 'up' vector we cant use glm::lookAt
-    if (std::abs(normal.y) >= 0.99f) {
-        float sgn = normal.y > 0.f ? 1.f : -1.f;
-        rotate[0] = {1.f, 0.f, 0.f};
-        rotate[1] = {0.f, 0.f, sgn};
-        rotate[1] = {0.f, sgn, 0.f};
-    } else
-        rotate = glm::inverse(glm::mat3(glm::lookAt({0.f, 0.f, 0.f}, normal, {0.f, 1.f, 0.f})));
+    // Map square to (r, theta)
+    // Handle degeneracy at the origin
+    if (sx == 0.0 && sy == 0.0) {
+        *dx = 0.0;
+        *dy = 0.0;
+        return;
+    }
+    float r, theta;
+    if (sx >= -sy) {
+        if (sx > sy) { // Handle first region of disk
+            r = sx;
+            if (sy > 0.0)
+                theta = sy / r;
+            else
+                theta = 8.0f + sy / r;
+        } else { // Handle second region of disk
+            r = sy;
+            theta = 2.0f - sx / r;
+        }
+    } else {
+        if (sx <= sy) { // Handle third region of disk
+            r = -sx;
+            theta = 4.0f - sy / r;
+        } else { // Handle fourth region of disk
+            r = -sy;
+            theta = 6.0f + sx / r;
+        }
+    }
+    theta *= M_PI / 4.f;
+    *dx = r * cosf(theta);
+    *dy = r * sinf(theta);
+}
 
-    const float theta = acosf(powf(PRNG::uniformFloat(0.f, 1.f), 1.f / (1.f + shininess)));
-    const float phi = M_PI * PRNG::uniformFloat(0.f, 2.f);
-
-    const float x = sin(theta) * cos(phi);
-    const float y = sin(theta) * sin(phi);
-    return rotate * glm::vec3(x, y, -glm::sqrt(1.f - x * x - y * y));
+// Generate points with a cosine distribution on the hemisphere
+glm::vec3 cosineSampleHemisphere() {
+    glm::vec3 ret;
+    concentricSampleDisk(&ret.x, &ret.y);
+    ret.z = sqrt(std::max(0.f, 1.f - ret.x * ret.x - ret.y * ret.y));
+    return ret;
 }
 
 // Generic BRDF
@@ -47,8 +70,10 @@ BRDF::~BRDF(){};
 glm::vec3 Diffuse::f(const glm::vec3 &wi, const glm::vec3 &wo, const glm::vec3 &n) { return float(M_1_PI) * color; }
 
 glm::vec3 Diffuse::sample_wi(glm::vec3 &wi, const glm::vec3 &wo, const glm::vec3 &n, float &pdf) {
-    glm::vec3 sample = hemisphereRandom(n);
-    wi = sample;
+    glm::vec3 tangent = normalize(perpendicular(n));
+    glm::vec3 bitangent = normalize(cross(tangent, n));
+    glm::vec3 sample = cosineSampleHemisphere();
+    wi = glm::normalize(sample.x * tangent + sample.y * bitangent + sample.z * n);
     pdf = glm::max(0.0f, dot(n, wi)) * M_1_PI;
     return f(wi, wo, n);
 }
