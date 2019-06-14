@@ -1,9 +1,37 @@
 # Test view scene: in OBJ format coords righthanded, CCW faces
+
+input
 data/CornellBox-Original.obj
+
+output
 renders/cornell_box.exr
-3
-300 300
-0.0 1.0 3.0
-0.0 1.0 0.0
-0 1 0
-1
+
+k
+6
+
+samples
+1000
+
+xres
+768
+
+yres
+768
+
+VP
+0.0
+1.0
+2.95
+
+LA
+0.0
+1.0
+0.0
+
+UP
+0.0
+1.0
+0.0
+
+yview
+1.0

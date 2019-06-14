@@ -23,11 +23,10 @@ struct LightTriangle {
 
 class Scene {
   public:
-    Scene();
-    Scene(std::string filename);
     Scene(int argc, char **argv);
 
-    // given in .rtc file
+    // params in rtc file or command line args
+
     std::string objPath;
     std::string renderPath;
     int k;
@@ -38,18 +37,22 @@ class Scene {
     glm::vec3 UP;
     float yview;
     std::vector<LightPoint> lightPoints;
-
-    // command line args
     bool usingOpenGLPreview;
     unsigned int previewHeight;
     size_t kdtreeLeafSize;
     glm::vec3 background;
     unsigned int samples;
 
+    // computed by reading model
     std::vector<LightTriangle> lightTriangles;
+
+    std::vector<std::string> params;
 
     // chosen by uniform distribution, pdf is 1 / lightTriangles.size()
     const LightTriangle &randomLight();
+
+  private:
+    Scene(std::string filename);
 };
 
 #endif

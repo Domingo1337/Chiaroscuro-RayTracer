@@ -38,7 +38,6 @@ KDTree::KDTree(Model &model, Scene &scene)
     for (auto &mesh : model.meshes) {
         indicesCount += mesh.indices.size();
     }
-
     triangles.reserve((indicesCount + 2) / 3);
     std::vector<id_t> triangleIDs((indicesCount + 2) / 3);
 
@@ -79,33 +78,30 @@ KDTree::KDTree(Model &model, Scene &scene)
 
             for (unsigned k = i; k < i + 3; k++) {
                 for (unsigned j = 0; j < 3; j++) {
-                    minCoords[j] =
-                        mesh.vertices[k].Position[j] < minCoords[j] ? mesh.vertices[k].Position[j] : minCoords[j];
-                    maxCoords[j] =
-                        mesh.vertices[k].Position[j] > maxCoords[j] ? mesh.vertices[k].Position[j] : maxCoords[j];
+                    minCoords[j] = std::min(mesh.vertices[mesh.indices[k]].Position[j], minCoords[j]);
+                    maxCoords[j] = std::max(mesh.vertices[mesh.indices[k]].Position[j], maxCoords[j]);
                 }
             }
             triangleIDs[triangleId] = triangleId;
-            triangleId++;
         }
     }
 
     nodes.push_back(KDTree::KDNode());
     nodes[0] = build(triangleIDs, maxCoords, minCoords);
     std::cout << "Triangles in scene: " << triangles.size() << "\n";
-    std::cerr << "Surface Lights in scene:";
+    std::cout << "Surface Lights in scene:";
     for (auto &light : scene.lightTriangles) {
-        std::cerr << "\nTriangle {" << triangles[light.id].posFst << triangles[light.id].posSnd
+        std::cout << "\nTriangle {" << triangles[light.id].posFst << triangles[light.id].posSnd
                   << triangles[light.id].posTrd << "} of radiance " << materials[light.id].Ke << " and surface "
                   << light.surface;
     }
-    std::cerr << (scene.lightTriangles.size() == 0 ? " None.\n" : "\n");
-    std::cerr << "Point Lights in scene:";
+    std::cout << (scene.lightTriangles.size() == 0 ? " None.\n" : "\n");
+    std::cout << "Point Lights in scene:";
     for (auto &light : scene.lightPoints) {
-        std::cerr << "\nPosition " << light.position << " of color " << light.color << " and intesity "
+        std::cout << "\nPosition " << light.position << " of color " << light.color << " and intesity "
                   << light.intensity;
     }
-    std::cerr << (scene.lightPoints.size() == 0 ? " None.\n" : "\n");
+    std::cout << (scene.lightPoints.size() == 0 ? " None.\n" : "\n");
 
     minCoords -= 0.0001f;
     maxCoords += 0.0001f;

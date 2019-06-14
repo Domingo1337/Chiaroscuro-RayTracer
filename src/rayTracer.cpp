@@ -15,7 +15,8 @@ RayTracer::RayTracer(Model &_model, Scene &_scene)
       kdtree(_model, _scene) {}
 
 void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1.f, 0.f}, float yview = 1.f) {
-    std::cerr << "Rendering image of size " << scene.xres << "x" << scene.yres << " with " << scene.samples
+    std::cerr << "Camera a;t " << eye << " facing: " << center << " with up: " << up << " and yview: " << yview
+              << "\nRendering image of size " << scene.xres << "x" << scene.yres << " with " << scene.samples
               << " samples, using " << omp_get_max_threads() << " threads...\t";
 
     auto beginTime = std::chrono::high_resolution_clock::now();
@@ -181,6 +182,7 @@ void RayTracer::exportImage(const char *filename) {
         // export in high dynamic range
         bitmap = FreeImage_AllocateT(FIT_RGBF, scene.xres, scene.yres);
         if (!bitmap) {
+            std::cerr << "Couldn't allocate the image.\n";
             std::cerr << "FreeImage export failed.\n";
             return FreeImage_DeInitialise();
         }
@@ -203,6 +205,7 @@ void RayTracer::exportImage(const char *filename) {
         normalizeImage();
         bitmap = FreeImage_Allocate(scene.xres, scene.yres, 24);
         if (!bitmap) {
+            std::cerr << "Couldn't allocate the image.\n";
             std::cerr << "FreeImage export failed.\n";
             return FreeImage_DeInitialise();
         }
@@ -219,8 +222,9 @@ void RayTracer::exportImage(const char *filename) {
 
     if (FreeImage_Save(format, bitmap, filename, 0))
         std::cerr << "Render succesfully saved to file " << filename << "\n";
-    else
+    else {
+        std::cerr << "Couldn't save the image.\n";
         std::cerr << "FreeImage export failed.\n";
-
+    }
     FreeImage_DeInitialise();
 }

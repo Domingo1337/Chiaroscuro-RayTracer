@@ -8,59 +8,66 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <string>
 
-Scene::Scene(int argc, char **argv) : Scene(argc > 1 ? argv[1] : "view_test.rtc") {
+Scene::Scene(int argc, char **argv) : Scene(argc > 1 ? argv[1] : "cornell.rtc") {
     for (int i = 2; i < argc; i++) {
-        if (strcmp(argv[i], "--no-preview") == 0)
-            usingOpenGLPreview = false;
-        else if (strcmp(argv[i], "--preview-height") == 0)
-            previewHeight = std::stoi(argv[++i]);
-        else if (strcmp(argv[i], "--samples") == 0)
-            samples = std::stoi(argv[++i]);
-        else if (strcmp(argv[i], "--kdtree-leaf-size") == 0)
-            kdtreeLeafSize = std::stoi(argv[++i]);
+        params.emplace_back(argv[i]);
+    }
+
+    for (unsigned i = 0; i < params.size(); i++) {
+        if (params[i][0] == '#')
+            continue;
+        else if (params[i] == "no-preview")
+            this->usingOpenGLPreview = false;
+        else if (params[i] == "input")
+            this->objPath = params[++i];
+        else if (params[i] == "output")
+            this->renderPath = params[++i];
+        else if (params[i] == "k")
+            this->k = std::stoi(params[++i]);
+        else if (params[i] == "xres")
+            this->xres = std::stoi(params[++i]);
+        else if (params[i] == "yres")
+            this->yres = std::stoi(params[++i]);
+        else if (params[i] == "VP") {
+            const float x = std::stof(params[++i]);
+            const float y = std::stof(params[++i]);
+            const float z = std::stof(params[++i]);
+            this->VP = glm::vec3(x, y, z);
+        } else if (params[i] == "LA") {
+            const float x = std::stof(params[++i]);
+            const float y = std::stof(params[++i]);
+            const float z = std::stof(params[++i]);
+            this->LA = glm::vec3(x, y, z);
+        } else if (params[i] == "UP") {
+            const float x = std::stof(params[++i]);
+            const float y = std::stof(params[++i]);
+            const float z = std::stof(params[++i]);
+            this->UP = glm::vec3(x, y, z);
+        } else if (params[i] == "yview")
+            yview = std::stof(params[++i]);
+        else if (params[i] == "preview-height")
+            previewHeight = std::stoi(params[++i]);
+        else if (params[i] == "samples")
+            samples = std::stoi(params[++i]);
+        else if (params[i] == "kdtree-leaf-size")
+            kdtreeLeafSize = std::stoi(params[++i]);
         else
-            std::cerr << "Invalid argument" << argv[i] << "\n";
+            std::cerr << "Invalid argument \"" << params[i] << "\"\n";
     }
 }
 
-Scene::Scene(std::string filename) {
-    this->usingOpenGLPreview = true;
-    this->previewHeight = 900;
-    this->kdtreeLeafSize = 8;
-    this->background = glm::vec3(0.f);
-    this->samples = 100;
-
-    std::ifstream input(filename);
-    char c;
-    while (input >> c && c == '#') {
-        input.ignore(256, '\n');
+// set default values and parse input from file
+Scene::Scene(std::string filename)
+    : renderPath("renders/output.exr"), k(3), xres(400), yres(300), VP(0, 0, 2), LA(0, 0, 0), UP(0, 1, 0), yview(1),
+      usingOpenGLPreview(true), previewHeight(900), kdtreeLeafSize(8), background(0), samples(100) {
+    std::ifstream file(filename);
+    std::string input;
+    while (std::getline(file, input)) {
+        if (input.length() > 0)
+            params.push_back(input);
     }
-    input.unget();
-
-    input >> objPath >> renderPath >> k >> xres >> yres;
-    input >> VP.x >> VP.y >> VP.z;
-    input >> LA.x >> LA.y >> LA.z;
-    input >> UP.x >> UP.y >> UP.z;
-    input >> yview;
-
-    while (input >> c) {
-        if (c != 'L') {
-            input.unget();
-            break;
-        }
-        glm::vec3 color, position;
-        input >> position.x >> position.y >> position.z;
-        input >> color.r >> color.g >> color.b;
-
-        float intensity;
-        input >> intensity;
-
-        color /= 255.f;
-
-        lightPoints.push_back(LightPoint(color, position, intensity));
-    }
-    input.close();
 }
 
 LightPoint::LightPoint(glm::vec3 _color, glm::vec3 _position, float _intensity)
