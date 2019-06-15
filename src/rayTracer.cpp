@@ -15,7 +15,7 @@ RayTracer::RayTracer(Model &_model, Scene &_scene)
       kdtree(_model, _scene) {}
 
 void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1.f, 0.f}, float yview = 1.f) {
-    std::cerr << "Camera a;t " << eye << " facing: " << center << " with up: " << up << " and yview: " << yview
+    std::cerr << "Camera at " << eye << " facing: " << center << " with up: " << up << " and yview: " << yview
               << "\nRendering image of size " << scene.xres << "x" << scene.yres << " with " << scene.samples
               << " samples, using " << omp_get_max_threads() << " threads...\t";
 
@@ -105,7 +105,7 @@ glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const
         delete material;
 
         // Roussian roulette termination
-        const float Kmax = std::max(f.r, std::max(f.g, f.b));
+        const float Kmax = std::max(std::max(f.r, f.g), f.b);
         if (pdf == 0.f || PRNG::uniformFloat(0.f, 1.f) > Kmax)
             return direct;
 
@@ -153,22 +153,51 @@ bool RayTracer::intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &dir
 
 uint8_t *RayTracer::getData() { return data.data(); }
 
-// currently map linearly pixels to float[0,1] and then to byte[0,255]
-void RayTracer::normalizeImage() {
-    normalizeImage(maxVal);
-    maxVal = 1.f;
+static inline float knee(double x, double f) { return logf(x * f + 1) / f; }
+
+static float findKneeF(float x, float y) {
+    float f0 = 0;
+    float f1 = 1;
+
+    while (knee(x, f1) > y) {
+        f0 = f1;
+        f1 = f1 * 2;
+    }
+
+    for (int i = 0; i < 30; ++i) {
+        float f2 = (f0 + f1) / 2;
+        float y2 = knee(x, f2);
+
+        if (y2 < y)
+            f1 = f2;
+        else
+            f0 = f2;
+    }
+
+    return (f0 + f1) / 2;
 }
 
-void RayTracer::normalizeImage(float max) {
-    if (max == 0.f || max == 1.f)
-        return;
-    float inversedMax = 1.f / max;
+// As in exrdisplay implementation
+void RayTracer::normalizeImage(float exposure, float defog, float kneeLow, float kneeHigh, float gamma) {
+    const float m = powf(2.f, exposure + 2.47393f);
+    const float s = 255.f * powf(2.f, -3.5f * gamma);
+    const float kl = powf(2.f, kneeLow);
+    const float f = findKneeF(powf(2.f, kneeHigh), powf(2.f, 3.5) - kl);
+
+    auto transform = [=](float x) {
+        x = std::max(0.f, x - defog);
+        x *= m;
+        if (x > kl)
+            x = kl + knee(x - kl, f);
+        return glm::clamp(powf(x, gamma) * s, 0.f, 255.f);
+    };
+
     for (unsigned y = 0; y < scene.yres; y++) {
         for (unsigned x = 0; x < scene.xres; x++) {
             int i = 3 * ((scene.yres - y - 1) * scene.xres + x);
-            data[i++] = (uint8_t)(255.f * glm::clamp((pixels[y][x].r) * inversedMax, 0.f, 1.f));
-            data[i++] = (uint8_t)(255.f * glm::clamp((pixels[y][x].g) * inversedMax, 0.f, 1.f));
-            data[i++] = (uint8_t)(255.f * glm::clamp((pixels[y][x].b) * inversedMax, 0.f, 1.f));
+            data[i++] = (uint8_t)transform(pixels[y][x].r);
+            data[i++] = (uint8_t)transform(pixels[y][x].g);
+            data[i++] = (uint8_t)transform(pixels[y][x].b);
         }
     }
 }

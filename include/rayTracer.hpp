@@ -7,32 +7,30 @@
 #include <glm/glm.hpp>
 #include <vector>
 
-class Color;
-
 class RayTracer {
   public:
     RayTracer(Model &_model, Scene &_scene);
 
-    /* Fill pixels with rays shot on screen centered between eye and center */
+    /* Fill pixels with rays shot on screen centered between eye and center. */
     void rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up, float yview);
-    /* Get RGB (24 bits per pixel) image location */
+    /* Get RGB (24 bits per pixel) image location. */
     uint8_t *getData();
 
-    /* The biggest single pixel color generated in last rayTrace()*/
+    /* The biggest single pixel color generated in last rayTrace() call. */
     float maxVal;
-    /* Divide every pixel's color by maxVal */
-    void normalizeImage();
-    /* Divide every pixel's color by specified max */
-    void normalizeImage(float max);
 
-    /* Export image to file using FreeImage library. 24 bits per pixel */
+    /* Normalize image so png and preview look somehow alike to exr output. */
+    void normalizeImage(float exposure = 7.f, float defog = 0.f, float kneeLow = 0.f, float kneeHigh = 5.f,
+                        float gamma = 2.2f);
+
+    /* Export image to file using FreeImage library. */
     void exportImage(const char *filename);
 
   private:
     /* Recursive procedure used by rayTrace method */
     glm::vec3 sendRay(const glm::vec3 &origin, const glm::vec3 dir, const int k);
 
-    /* Intersect ray specified by origin and direction with kd-tree, storing the hitpoint in params: intersection, normal, color, brdf */
+    /* Ray-model intersection accelerated by kd-tree. Stores result in params: intersection, normal, color, brdf. */
     bool intersectRayKDTree(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &intersection,
                             glm::vec3 &normal, BRDF *&brdf);
 
