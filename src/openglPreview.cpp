@@ -5,7 +5,6 @@
 
 #include <glad/glad.h>
 
-#include "utilities.hpp"
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
@@ -101,10 +100,14 @@ void OpenGLPreview::loop() {
 }
 
 void OpenGLPreview::setCallbacks() {
-    glfwSetWindowUserPointer(window, &camera);
+    glfwSetWindowUserPointer(window, this);
     glfwSetFramebufferSizeCallback(window,
                                    [](GLFWwindow *window, int width, int height) { glViewport(0, 0, width, height); });
     glfwSetCursorPosCallback(window, [](GLFWwindow *window, double xpos, double ypos) {
+        OpenGLPreview *preview = static_cast<OpenGLPreview *>(glfwGetWindowUserPointer(window));
+        if (preview->showRender)
+            return;
+
         static bool firstMouse = true;
         static float lastX = 0.f;
         static float lastY = 0.f;
@@ -120,10 +123,13 @@ void OpenGLPreview::setCallbacks() {
         lastX = xpos;
         lastY = ypos;
 
-        static_cast<Camera *>(glfwGetWindowUserPointer(window))->ProcessMouseMovement(xoffset, yoffset);
+        preview->camera.ProcessMouseMovement(xoffset, yoffset);
     });
     glfwSetScrollCallback(window, [](GLFWwindow *window, double xoffset, double yoffset) {
-        static_cast<Camera *>(glfwGetWindowUserPointer(window))->ProcessMouseScroll(yoffset);
+        OpenGLPreview *preview = static_cast<OpenGLPreview *>(glfwGetWindowUserPointer(window));
+        if (preview->showRender)
+            return;
+        preview->camera.ProcessMouseScroll(yoffset);
     });
 }
 
@@ -148,13 +154,30 @@ void OpenGLPreview::processInputs(float deltaTime) {
     } else {
         shouldSwitch = true;
     }
-    if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS) {
-        print_vec(camera.Position);
-        std::cerr << "\n";
-    }
+    static bool changeExposure = true;
+    if (glfwGetKey(window, GLFW_KEY_EQUAL) == GLFW_PRESS) {
+        if (changeExposure) {
+            scene->exposure += 0.2;
+            std::cout << "Scene exposure is now " << scene->exposure << std::endl;
+            screen.updateScreen();
+            changeExposure = false;
+        }
+    } else if (glfwGetKey(window, GLFW_KEY_MINUS) == GLFW_PRESS) {
+        if (changeExposure) {
+            scene->exposure -= 0.2;
+            std::cout << "Scene exposure is now " << scene->exposure << std::endl;
+            screen.updateScreen();
+            changeExposure = false;
+        }
+    } else
+        changeExposure = true;
 
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
+
+    if (showRender)
+        return;
+
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         camera.ProcessKeyboard(FORWARD, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
@@ -223,11 +246,11 @@ void OpenGLPreview::Screen::draw() {
 void OpenGLPreview::Screen::requestRender(Camera *camera) {
     renderer->rayTrace(camera->Position, camera->Front + camera->Position, camera->Up,
                        2 * tan(camera->Zoom * M_PI / 360.));
-    renderer->normalizeImage();
     updateScreen();
 }
 
 void OpenGLPreview::Screen::updateScreen() {
+    renderer->normalizeImage();
     glBindTexture(GL_TEXTURE_2D, texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, renderer->getData());
     glGenerateMipmap(GL_TEXTURE_2D);

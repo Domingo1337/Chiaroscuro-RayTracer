@@ -20,7 +20,7 @@ class RayTracer {
     float maxVal;
 
     /* Normalize image so png and preview look somehow alike to exr output. */
-    void normalizeImage(float exposure = 7.f, float defog = 0.f, float kneeLow = 0.f, float kneeHigh = 5.f,
+    void normalizeImage(float exposure = FLT_MAX, float defog = 0.f, float kneeLow = 0.f, float kneeHigh = 5.f,
                         float gamma = 2.2f);
 
     /* Export image to file using FreeImage library. */

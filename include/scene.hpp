@@ -51,6 +51,9 @@ class Scene {
     // chosen by uniform distribution, pdf is 1 / lightTriangles.size()
     const LightTriangle &randomLight();
 
+    // for preview and png export
+    float exposure;
+
   private:
     Scene(std::string filename);
 };

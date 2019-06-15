@@ -55,6 +55,8 @@ class OpenGLPreview {
     GLFWwindow *window;
     unsigned int previewHeight;
     unsigned int previewWidth;
+
+  protected:
     Camera camera;
     bool showRender;
 };

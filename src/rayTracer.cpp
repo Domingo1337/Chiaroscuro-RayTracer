@@ -15,8 +15,25 @@ RayTracer::RayTracer(Model &_model, Scene &_scene)
       kdtree(_model, _scene) {}
 
 void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1.f, 0.f}, float yview = 1.f) {
+    static unsigned layers = 0;
+    static glm::vec3 lastEye = glm::vec3(FLT_MAX);
+    static glm::vec3 lastCenter = glm::vec3(FLT_MAX);
+    static glm::vec3 lastUp = glm::vec3(FLT_MAX);
+    static float lastYview = -1;
+
+    const bool newLayer = (eye == lastEye) && (center == lastCenter) && (lastUp == lastUp) && (yview == lastYview);
+    if (newLayer)
+        layers++;
+    else {
+        layers = 1;
+        lastEye = eye;
+        lastCenter = center;
+        lastUp = up;
+        lastYview = yview;
+    }
+
     std::cerr << "Camera at " << eye << " facing: " << center << " with up: " << up << " and yview: " << yview
-              << "\nRendering image of size " << scene.xres << "x" << scene.yres << " with " << scene.samples
+              << "\nRendering image of size " << scene.xres << "x" << scene.yres << " with " << layers * scene.samples
               << " samples, using " << omp_get_max_threads() << " threads...\t";
 
     auto beginTime = std::chrono::high_resolution_clock::now();
@@ -38,13 +55,13 @@ void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
 #pragma omp parallel for
     for (unsigned y = 0; y < scene.yres; y++) {
         for (unsigned x = 0; x < scene.xres; x++) {
-            pixels[y][x] = {0.f, 0.f, 0.f};
+            glm::vec3 temp;
             for (unsigned s = 0; s < scene.samples; s++)
-                pixels[y][x] += sendRay(
+                temp += sendRay(
                     eye, leftUpper + (x + PRNG::uniformFloat(0.f, 1.f)) * dx + (y + PRNG::uniformFloat(0.f, 1.f)) * dy,
                     1);
 
-            pixels[y][x] *= invSamples;
+            pixels[y][x] = (pixels[y][x] * float(layers - 1) + (temp * invSamples)) / float(layers);
 
             maxVal = maxVal > pixels[y][x].r ? maxVal : pixels[y][x].r;
             maxVal = maxVal > pixels[y][x].g ? maxVal : pixels[y][x].g;
@@ -53,7 +70,7 @@ void RayTracer::rayTrace(glm::vec3 eye, glm::vec3 center, glm::vec3 up = {0.f, 1
     }
 
     auto finishedTime = std::chrono::high_resolution_clock::now();
-    std::cerr << "took " << (finishedTime - beginTime).count() * 0.000000001f << " seconds.\n";
+    std::cerr << "took " << (finishedTime - beginTime).count() * 0.000000001f << " seconds.\a\n";
 }
 
 glm::vec3 RayTracer::sendRay(const glm::vec3 &origin, const glm::vec3 dir, const int k) {
@@ -179,6 +196,9 @@ static float findKneeF(float x, float y) {
 
 // As in exrdisplay implementation
 void RayTracer::normalizeImage(float exposure, float defog, float kneeLow, float kneeHigh, float gamma) {
+    if (exposure == FLT_MAX)
+        exposure = scene.exposure;
+
     const float m = powf(2.f, exposure + 2.47393f);
     const float s = 255.f * powf(2.f, -3.5f * gamma);
     const float kl = powf(2.f, kneeLow);

@@ -11,9 +11,8 @@
 #include <string>
 
 Scene::Scene(int argc, char **argv) : Scene(argc > 1 ? argv[1] : "cornell.rtc") {
-    for (int i = 2; i < argc; i++) {
+    for (int i = 2; i < argc; i++)
         params.emplace_back(argv[i]);
-    }
 
     for (unsigned i = 0; i < params.size(); i++) {
         if (params[i][0] == '#')
@@ -51,6 +50,8 @@ Scene::Scene(int argc, char **argv) : Scene(argc > 1 ? argv[1] : "cornell.rtc") 
             previewHeight = std::stoi(params[++i]);
         else if (params[i] == "samples")
             samples = std::stoi(params[++i]);
+        else if (params[i] == "exposure")
+            exposure = std::stof(params[++i]);
         else if (params[i] == "kdtree-leaf-size")
             kdtreeLeafSize = std::stoi(params[++i]);
         else
@@ -61,7 +62,7 @@ Scene::Scene(int argc, char **argv) : Scene(argc > 1 ? argv[1] : "cornell.rtc") 
 // set default values and parse input from file
 Scene::Scene(std::string filename)
     : renderPath("renders/output.exr"), k(3), xres(400), yres(300), VP(0, 0, 2), LA(0, 0, 0), UP(0, 1, 0), yview(1),
-      usingOpenGLPreview(true), previewHeight(900), kdtreeLeafSize(8), background(0), samples(100) {
+      usingOpenGLPreview(true), previewHeight(900), kdtreeLeafSize(8), background(0), samples(100), exposure(5) {
     std::ifstream file(filename);
     std::string input;
     while (std::getline(file, input)) {

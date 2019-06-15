@@ -2,12 +2,6 @@
 #include "openglPreview.hpp"
 #include "rayTracer.hpp"
 
-#include <iostream>
-
-/* TODO:
- *   Calculate normals if they are not given in obj file.
- */
-
 int main(int argc, char **argv) {
     Scene scene(argc, argv);
     OpenGLPreview preview(&scene);
